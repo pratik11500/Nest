@@ -743,21 +743,16 @@ body {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    max-width: 100%;
+    gap: 8px;
+    margin-bottom: 12px;
+    max-width: 70%;
     animation: messageSlideIn 0.3s ease;
-    transition: all var(--transition-fast);
-}
-
-.message:hover {
-    background: var(--surface-dark);
 }
 
 .message-avatar {
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary-purple) 0%, var(--accent-purple) 100%);
     color: white;
@@ -765,34 +760,33 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 0.875rem;
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
 }
 
 .own-message {
     flex-direction: row-reverse;
-    justify-content: flex-end;
+    align-self: flex-end;
+    margin-left: auto;
 }
 
 .message-content {
-    flex: 1;
-    max-width: calc(100% - 50px);
     background: var(--bg-secondary);
-    border-radius: 0.75rem;
-    padding: 0.75rem;
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    max-width: 100%;
 }
 
 .own-message .message-content {
-    background: var(--primary-purple);
+    background: linear-gradient(135deg, var(--primary-purple) 0%, var(--primary-purple-dark) 100%);
     color: white;
-    order: -1; /* Ensures content before avatar in reverse layout */
 }
 
 .message-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
 }
 
 .own-message .message-header {
@@ -800,7 +794,7 @@ body {
 }
 
 .message-author {
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
 }
 
@@ -810,7 +804,7 @@ body {
 
 .message-timestamp {
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
 }
 
 .own-message .message-timestamp {
@@ -821,6 +815,7 @@ body {
     color: var(--text-primary);
     line-height: 1.4;
     word-wrap: break-word;
+    font-size: 0.875rem;
 }
 
 .own-message .message-text {
@@ -1069,11 +1064,11 @@ body {
 @keyframes messageSlideIn {
     0% {
         opacity: 0;
-        transform: translateX(-20px);
+        transform: translateY(10px);
     }
     100% {
         opacity: 1;
-        transform: translateX(0);
+        transform: translateY(0);
     }
 }
 
@@ -1142,6 +1137,10 @@ body {
     .toast {
         min-width: auto;
     }
+
+    .message {
+        max-width: 85%;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1155,6 +1154,10 @@ body {
 
     .chat-header {
         padding: 16px;
+    }
+
+    .message {
+        max-width: 90%;
     }
 }
 
