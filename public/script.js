@@ -9,6 +9,9 @@ class NestChat {
         this.es = null;
         this.userPollingInterval = null;
         this.heartbeatInterval = null;
+        this.typingUsers = new Set();
+        this.typingTimeout = null;
+        this.replyingTo = null; // { id, author, text }
 
         this.init();
     }
@@ -77,16 +80,20 @@ class NestChat {
         });
 
         // Chat events
-        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+        const messageInput = document.getElementById('messageInput');
+        messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
 
+        messageInput.addEventListener('input', () => this.sendTypingStatus());
+
         document.getElementById('sendBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
         document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
+        document.getElementById('cancelReplyBtn').addEventListener('click', () => this.cancelReply());
 
         // Auto-scroll messages
         const messagesContainer = document.getElementById('messagesContainer');
@@ -236,14 +243,17 @@ class NestChat {
         this.es = new EventSource(url);
 
         this.es.onmessage = (e) => {
-            const msg = JSON.parse(e.data);
-            if (msg.id <= this.lastMessageId) return;
-
-            this.lastMessageId = msg.id;
-            msg.isOwn = false; // From SSE: others' messages
-            this.messages.push(msg);
-            this.renderMessage(msg);
-            this.scrollToBottom();
+            const data = JSON.parse(e.data);
+            if (data.type === 'message') {
+                if (data.id <= this.lastMessageId) return;
+                this.lastMessageId = data.id;
+                data.isOwn = false;
+                this.messages.push(data);
+                this.renderMessage(data);
+                this.scrollToBottom();
+            } else if (data.type === 'typing') {
+                this.handleTypingEvent(data);
+            }
         };
 
         this.es.onerror = (err) => {
@@ -266,13 +276,18 @@ class NestChat {
         if (!text || !this.currentUser) return;
 
         try {
+            const payload = { text };
+            if (this.replyingTo) {
+                payload.parent_message_id = this.replyingTo.id;
+            }
+
             const res = await fetch('/api/messages', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...this.getAuthHeaders()
                 },
-                body: JSON.stringify({ text })
+                body: JSON.stringify(payload)
             });
             const msg = await res.json();
 
@@ -285,6 +300,8 @@ class NestChat {
             this.scrollToBottom();
 
             input.value = '';
+            this.cancelReply();
+            this.sendTypingStatus(false);
 
             this.showToast('Message sent!', 'success', 2000);
         } catch (e) {
@@ -292,13 +309,115 @@ class NestChat {
         }
     }
 
+    async sendTypingStatus(isTyping = true) {
+        if (!this.currentUser || !this.token) return;
+
+        if (this.typingTimeout) {
+            clearTimeout(this.typingTimeout);
+        }
+
+        if (isTyping) {
+            try {
+                await fetch('/api/typing', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify({ isTyping: true })
+                });
+
+                this.typingTimeout = setTimeout(() => {
+                    this.sendTypingStatus(false);
+                }, 3000);
+            } catch (e) {
+                console.error('Failed to send typing status:', e);
+            }
+        } else {
+            try {
+                await fetch('/api/typing', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify({ isTyping: false })
+                });
+            } catch (e) {
+                console.error('Failed to send typing status:', e);
+            }
+        }
+    }
+
+    handleTypingEvent({ username, isTyping }) {
+        if (username === this.currentUser?.username) return;
+
+        if (isTyping) {
+            this.typingUsers.add(username);
+        } else {
+            this.typingUsers.delete(username);
+        }
+
+        this.renderTypingIndicators();
+    }
+
+    renderTypingIndicators() {
+        const container = document.getElementById('typingIndicators');
+        container.innerHTML = '';
+
+        if (this.typingUsers.size === 0) return;
+
+        const usernames = Array.from(this.typingUsers);
+        const text = usernames.length > 2
+            ? `${usernames.slice(0, 2).join(', ')} and ${usernames.length - 2} others are typing`
+            : usernames.join(' and ') + (usernames.length > 1 ? ' are typing' : ' is typing');
+
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        indicator.innerHTML = `
+            <span>${text}</span>
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        `;
+        container.appendChild(indicator);
+    }
+
     handleReply(messageId) {
         const message = this.messages.find(m => m.id === messageId);
         if (!message) return;
 
+        this.replyingTo = {
+            id: message.id,
+            author: message.author,
+            text: message.text
+        };
+
+        const replyingIndicator = document.getElementById('replyingIndicator');
+        const replyingTo = document.getElementById('replyingTo');
+        replyingTo.textContent = `Replying to ${message.author}: ${message.text.substring(0, 50)}${message.text.length > 50 ? '...' : ''}`;
+        replyingIndicator.classList.remove('hidden');
+
         const input = document.getElementById('messageInput');
         input.value = `> ${message.author}: ${message.text}\n`;
         input.focus();
+    }
+
+    cancelReply() {
+        this.replyingTo = null;
+        document.getElementById('replyingIndicator').classList.add('hidden');
+        document.getElementById('messageInput').value = '';
+    }
+
+    scrollToMessage(messageId) {
+        const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        if (messageEl) {
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            messageEl.classList.add('highlight');
+            setTimeout(() => messageEl.classList.remove('highlight'), 2000);
+        }
     }
 
     async sendHeartbeat() {
@@ -365,14 +484,17 @@ class NestChat {
         });
 
         let messageContent = `<div class="message-text">${this.escapeHtml(message.text)}</div>`;
-        if (message.text.startsWith('>')) {
-            const quoteParts = message.text.split('\n');
-            const quote = quoteParts[0].slice(1).trim(); // Remove '>'
-            const replyText = quoteParts.slice(1).join('\n').trim();
-            messageContent = `
-                <div class="quoted-message">${this.escapeHtml(quote)}</div>
-                <div class="message-text">${this.escapeHtml(replyText)}</div>
-            `;
+        if (message.parent_message_id) {
+            const parentMessage = this.messages.find(m => m.id === message.parent_message_id);
+            if (parentMessage) {
+                messageContent = `
+                    <div class="quoted-message" data-message-id="${parentMessage.id}">
+                        <div class="quote-author">${this.escapeHtml(parentMessage.author)}</div>
+                        <div class="quote-text">${this.escapeHtml(parentMessage.text)}</div>
+                    </div>
+                    <div class="message-text">${this.escapeHtml(message.text)}</div>
+                `;
+            }
         }
 
         messageEl.innerHTML = `
@@ -381,7 +503,7 @@ class NestChat {
             </div>
             <div class="message-content">
                 <div class="message-header">
-                    <span class="message-author">${message.author}</span>
+                    <span class="message-author">${this.escapeHtml(message.author)}</span>
                     <span class="message-timestamp">${timestamp}</span>
                 </div>
                 ${messageContent}
@@ -399,6 +521,14 @@ class NestChat {
         messageEl.querySelector('.reply-btn').addEventListener('click', () => {
             this.handleReply(message.id);
         });
+
+        // Bind click on quoted message
+        const quotedMessage = messageEl.querySelector('.quoted-message');
+        if (quotedMessage) {
+            quotedMessage.addEventListener('click', () => {
+                this.scrollToMessage(quotedMessage.dataset.messageId);
+            });
+        }
 
         if (animate) {
             setTimeout(() => {
@@ -482,6 +612,8 @@ class NestChat {
             this.messages = [];
             this.onlineUsers = [];
             this.lastMessageId = 0;
+            this.typingUsers.clear();
+            this.cancelReply();
 
             this.showToast('Successfully logged out', 'success');
 
