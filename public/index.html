@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nest</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Authentication Container -->
+    <div id="authContainer" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="nest-logo">
+                    <div class="logo-icon">
+                        <div class="nest-symbol">N</div>
+                    </div>
+                    <h1>Nest</h1>
+                </div>
+                <p class="tagline">Join the conversation</p>
+            </div>
+            
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form">
+                <h2>Welcome Back</h2>
+                <div class="form-group">
+                    <input type="text" id="loginUsername" placeholder=" " required>
+                    <label for="loginUsername">Username</label>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="loginPassword" placeholder=" " required>
+                    <label for="loginPassword">Password</label>
+                </div>
+                <button type="button" id="loginBtn" class="primary-btn">
+                    <span>Sign In</span>
+                    <div class="btn-loader"></div>
+                </button>
+                <p class="auth-switch">
+                    Don't have an account? 
+                    <a href="#" id="showRegister">Create one</a>
+                </p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form hidden">
+                <h2>Join Nest</h2>
+                <div class="form-group">
+                    <input type="text" id="registerUsername" placeholder=" " required>
+                    <label for="registerUsername">Choose a username</label>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="registerPassword" placeholder=" " required>
+                    <label for="registerPassword">Create password</label>
+                </div>
+                <button type="button" id="registerBtn" class="primary-btn">
+                    <span>Create Account</span>
+                    <div class="btn-loader"></div>
+                </button>
+                <p class="auth-switch">
+                    Already have an account? 
+                    <a href="#" id="showLogin">Sign in</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Auth Background Effects -->
+        <div class="auth-background">
+            <div class="floating-shapes">
+                <div class="shape shape-1"></div>
+                <div class="shape shape-2"></div>
+                <div class="shape shape-3"></div>
+                <div class="shape shape-4"></div>
+                <div class="shape shape-5"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Application -->
+    <div id="chatApp" class="chat-app hidden">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="nest-logo-small">
+                    <div class="logo-icon-small">
+                        <div class="nest-symbol-small">N</div>
+                    </div>
+                    <h2>Nest</h2>
+                </div>
+                <div class="user-profile" id="userProfile">
+                    <div class="profile-avatar">
+                        <span id="userInitials"></span>
+                        <div class="status-indicator online"></div>
+                    </div>
+                    <div class="profile-info">
+                        <span id="currentUsername"></span>
+                        <div class="status-text">Online</div>
+                    </div>
+                    <button class="logout-btn" id="logoutBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16 13v-2H7V9l-5 4 5 4v-2h9zM20 3h-9c-1.103 0-2 .897-2 2v4h2V5h9v14h-9v-4H9v4c0 1.103.897 2 2 2h9c1.103 0 2-.897 2-2V5c0-1.103-.897-2-2-2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Online Users -->
+            <div class="online-users">
+                <h3>Online Users <span id="onlineCount">(0)</span></h3>
+                <div class="users-list" id="usersList">
+                    <!-- Users will be populated here -->
+                </div>
+            </div>
+
+            <!-- Chat Stats -->
+            <div class="chat-stats">
+                <div class="stat-item">
+                    <span class="stat-number" id="messageCount">0</span>
+                    <span class="stat-label">Messages</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="userCount">0</span>
+                    <span class="stat-label">Users</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="main-chat">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="channel-info">
+                    <h2># General</h2>
+                    <p>Welcome to the main chat room</p>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" id="clearChatBtn" title="Clear chat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                    <button class="action-btn" id="settingsBtn" title="Settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Messages Container -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="welcome-message">
+                    <div class="welcome-icon">
+                        <div class="nest-symbol">N</div>
+                    </div>
+                    <h3>Welcome to Nest!</h3>
+                    <p>Start chatting and connecting with others in the community.</p>
+                </div>
+                <!-- Messages will be populated here -->
+            </div>
+
+            <!-- Message Input -->
+            <div class="message-input-container">
+                <div class="message-input">
+                    <button class="attachment-btn" title="Attach file">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2 12.5C2 9.46 4.46 7 7.5 7H18c2.21 0 4 1.79 4 4s-1.79 4-4 4H9.5C8.12 15 7 13.88 7 12.5S8.12 10 9.5 10H17v2H9.41c-.55 0-.55 1 0 1H18c1.1 0 2-.9 2-2s-.9-2-2-2H7.5C5.57 9 4 10.57 4 12.5S5.57 16 7.5 16H17v2H7.5C4.46 18 2 15.54 2 12.5z"/>
+                        </svg>
+                    </button>
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Type your message..."
+                        maxlength="500"
+                        autocomplete="off"
+                    >
+                    <div class="message-actions">
+                        <button class="emoji-btn" title="Add emoji">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2ZM12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20ZM16.5,9C17.3,9 18,8.3 18,7.5C18,6.7 17.3,6 16.5,6C15.7,6 15,6.7 15,7.5C15,8.3 15.7,9 16.5,9ZM7.5,9C8.3,9 9,8.3 9,7.5C9,6.7 8.3,6 7.5,6C6.7,6 6,6.7 6,7.5C6,8.3 6.7,9 7.5,9ZM12,17.23C10.25,17.23 8.71,16.5 7.81,15.42L9.07,14.64C9.5,15.34 10.72,15.96 12,15.96C13.28,15.96 14.5,15.34 14.93,14.64L16.19,15.42C15.29,16.5 13.75,17.23 12,17.23Z"/>
+                            </svg>
+                        </button>
+                        <button class="send-btn" id="sendBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-footer">
+                    <span class="character-count">
+                        <span id="charCount">0</span>/500
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container">
+        <!-- Toasts will appear here -->
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
