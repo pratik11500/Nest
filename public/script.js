@@ -99,7 +99,7 @@ class NestChat {
 
     debounce(func, wait) {
         let timeout;
-        return function (...args) {
+        return function(...args) {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
@@ -867,7 +867,7 @@ class NestChat {
     }
 
     showSettings() {
-        this.showToast('Settings feature coming soon!', 'info');
+        window.location.href = '/settings.html';
     }
 
     logout() {

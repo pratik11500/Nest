@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nest Chat - Settings</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/settings.js" type="module" defer></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex">
+    <div class="flex w-full max-w-7xl mx-auto">
+        <!-- Navbar (2/5 of the width) -->
+        <nav class="w-2/5 bg-white shadow-md p-6">
+            <h2 class="text-xl font-bold mb-6">Settings</h2>
+            <ul class="space-y-2">
+                <li>
+                    <button data-section="account" class="nav-button w-full text-left py-2 px-4 rounded hover:bg-purple-100 text-purple-600 font-medium">Account</button>
+                </li>
+                <li>
+                    <button data-section="profile" class="nav-button w-full text-left py-2 px-4 rounded hover:bg-purple-100 text-gray-600">Profile</button>
+                </li>
+                <li>
+                    <button data-section="theme" class="nav-button w-full text-left py-2 px-4 rounded hover:bg-purple-100 text-gray-600">Theme</button>
+                </li>
+                <li>
+                    <button data-section="advanced" class="nav-button w-full text-left py-2 px-4 rounded hover:bg-purple-100 text-gray-600">Advanced</button>
+                </li>
+            </ul>
+            <button id="backToChat" class="mt-6 w-full py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700">Back to Chat</button>
+        </nav>
+
+        <!-- Content Area (3/5 of the width) -->
+        <main class="w-3/5 p-6 bg-gray-50">
+            <div id="settingsContent" class="space-y-6">
+                <!-- Account Section (default) -->
+                <div id="accountSection" class="section">
+                    <h3 class="text-lg font-semibold mb-4">Account Settings</h3>
+
+                    <!-- Change Password -->
+                    <div class="bg-white p-4 rounded shadow">
+                        <h4 class="text-md font-medium mb-2">Change Password</h4>
+                        <form id="changePasswordForm" class="space-y-4">
+                            <div>
+                                <label for="currentPassword" class="block text-sm">Current Password</label>
+                                <input type="password" id="currentPassword" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div>
+                                <label for="newPassword" class="block text-sm">New Password</label>
+                                <input type="password" id="newPassword" class="w-full p-2 border rounded" required>
+                            </div>
+                            <button type="submit" class="py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700">Update Password</button>
+                        </form>
+                    </div>
+
+                    <!-- Change Email -->
+                    <div class="bg-white p-4 rounded shadow mt-4">
+                        <h4 class="text-md font-medium mb-2">Change Email</h4>
+                        <form id="changeEmailForm" class="space-y-4">
+                            <div>
+                                <label for="newEmail" class="block text-sm">New Email</label>
+                                <input type="email" id="newEmail" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div>
+                                <label for="emailPassword" class="block text-sm">Current Password</label>
+                                <input type="password" id="emailPassword" class="w-full p-2 border rounded" required>
+                            </div>
+                            <button type="submit" class="py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700">Update Email</button>
+                        </form>
+                    </div>
+
+                    <!-- Delete Account -->
+                    <div class="bg-white p-4 rounded shadow mt-4">
+                        <h4 class="text-md font-medium mb-2 text-red-600">Delete Account</h4>
+                        <p class="text-sm text-gray-600 mb-4">This action is permanent and cannot be undone.</p>
+                        <form id="deleteAccountForm" class="space-y-4">
+                            <div>
+                                <label for="deletePassword" class="block text-sm">Current Password</label>
+                                <input type="password" id="deletePassword" class="w-full p-2 border rounded" required>
+                            </div>
+                            <button type="submit" class="py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700">Delete Account</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Placeholder Sections -->
+                <div id="profileSection" class="section hidden">
+                    <h3 class="text-lg font-semibold mb-4">Profile Settings</h3>
+                    <p class="text-gray-600">Profile settings will be implemented here.</p>
+                </div>
+                <div id="themeSection" class="section hidden">
+                    <h3 class="text-lg font-semibold mb-4">Theme Settings</h3>
+                    <p class="text-gray-600">Theme settings will be implemented here.</p>
+                </div>
+                <div id="advancedSection" class="section hidden">
+                    <h3 class="text-lg font-semibold mb-4">Advanced Settings</h3>
+                    <p class="text-gray-600">Advanced settings will be implemented here.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

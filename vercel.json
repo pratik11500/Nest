@@ -29,6 +29,14 @@
       "dest": "/api/typing.js"
     },
     {
+      "src": "/api/account",
+      "dest": "/api/account.js"
+    },
+    {
+      "src": "/settings.html",
+      "dest": "/public/settings.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/public/$1"
     }
