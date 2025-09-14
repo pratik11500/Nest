@@ -624,6 +624,8 @@ body {
     gap: 12px;
     cursor: pointer;
     transition: all var(--transition-fast);
+    text-decoration: none;
+    height: 72px;
 }
 
 .creator-toggle:hover {
@@ -631,14 +633,14 @@ body {
 }
 
 .creator-toggle span {
-    font-size: 14px;
+    font-size: 26px;
     font-weight: var(--font-weight-medium);
     color: var(--text-secondary);
 }
 
 .creator-toggle img {
-    width: 32px;
-    height: 32px;
+    width: 52px;
+    height: auto;
     object-fit: contain;
 }
 
@@ -827,13 +829,13 @@ body {
 .reply-btn {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: #fff;
     cursor: pointer;
     padding: 4px;
     border-radius: var(--border-radius-sm);
     transition: all var(--transition-fast);
     position: absolute;
-    top: 8px;
+    top: 30px;
     right: 8px;
     display: none;
 }
@@ -843,7 +845,7 @@ body {
 }
 
 .reply-btn:hover {
-    color: var(--primary-purple);
+    color: #fff;
     background: rgba(139, 92, 246, 0.1);
 }
 
@@ -912,7 +914,7 @@ body {
     border: 2px solid var(--border-color);
     border-radius: var(--border-radius-xl);
     transition: all var(--transition-fast);
-    height: 40px;
+    height: 50px;
 }
 
 .message-input:focus-within {
