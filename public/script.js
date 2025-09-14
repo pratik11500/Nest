@@ -1,4 +1,3 @@
-// Nest Chat Application - Real-time Chat with SSE and Neon DB
 class NestChat {
     constructor() {
         this.currentUser = null;
@@ -228,9 +227,23 @@ class NestChat {
 
     async fetchMessages() {
         try {
-            const res = await fetch('/api/messages');
-            if (!res.ok) throw new Error('Failed to fetch messages');
-            const data = await res.json();
+            console.log('Fetching messages from /api/messages');
+            const res = await fetch('/api/messages', {
+                headers: this.getAuthHeaders()
+            });
+            console.log('GET /api/messages response status:', res.status, 'ok:', res.ok);
+            let data;
+            try {
+                data = await res.json();
+                console.log('GET /api/messages response body:', data);
+            } catch (jsonError) {
+                const responseText = await res.text();
+                console.error('Failed to parse JSON response for messages:', jsonError, 'Response text:', responseText);
+                throw new Error(`Invalid server response: ${responseText.slice(0, 100)}...`);
+            }
+
+            if (!res.ok) throw new Error(data.error || 'Failed to fetch messages');
+
             this.messages = data.map(m => ({
                 ...m,
                 isOwn: m.author === this.currentUser?.username,
@@ -240,7 +253,7 @@ class NestChat {
             this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
         } catch (e) {
             console.error('Error fetching messages:', e);
-            this.showToast('Failed to load messages', 'error');
+            this.showToast(`Failed to load messages: ${e.message}`, 'error');
         }
     }
 
@@ -299,7 +312,9 @@ class NestChat {
 
     async fetchOnlineUsers() {
         try {
-            const res = await fetch('/api/users');
+            const res = await fetch('/api/users', {
+                headers: this.getAuthHeaders()
+            });
             if (!res.ok) throw new Error('Failed to fetch users');
             this.onlineUsers = await res.json();
             this.updateOnlineUsers();
@@ -321,6 +336,7 @@ class NestChat {
                 payload.parent_message_id = this.replyingTo.id;
             }
 
+            console.log('Sending POST /api/messages with payload:', payload);
             const res = await fetch('/api/messages', {
                 method: 'POST',
                 headers: {
@@ -329,7 +345,17 @@ class NestChat {
                 },
                 body: JSON.stringify(payload)
             });
-            const msg = await res.json();
+
+            console.log('POST /api/messages response status:', res.status, 'ok:', res.ok);
+            let msg;
+            try {
+                msg = await res.json();
+                console.log('POST /api/messages response body:', msg);
+            } catch (jsonError) {
+                const responseText = await res.text();
+                console.error('Failed to parse JSON response for send message:', jsonError, 'Response text:', responseText);
+                throw new Error(`Invalid server response: ${responseText.slice(0, 100)}...`);
+            }
 
             if (!res.ok) throw new Error(msg.error || 'Failed to send message');
 
@@ -346,7 +372,7 @@ class NestChat {
             await this.sendTypingStatus(false);
         } catch (e) {
             console.error('Error sending message:', e);
-            this.showToast('Failed to send message', 'error');
+            this.showToast(`Failed to send message: ${e.message}`, 'error');
         }
     }
 
@@ -552,7 +578,7 @@ class NestChat {
                 console.log('PATCH response body:', updatedMessage);
             } catch (jsonError) {
                 const responseText = await res.text();
-                console.error('Failed to parse JSON response:', jsonError, 'Response text:', responseText);
+                console.error('Failed to parse JSON response for edit:', jsonError, 'Response text:', responseText);
                 throw new Error(`Invalid server response: ${responseText.slice(0, 100)}...`);
             }
 
@@ -580,7 +606,7 @@ class NestChat {
                 this.showToast('Failed to update message locally', 'error');
             }
         } catch (e) {
-            console.error('Error editing message:', e.message);
+            console.error('Error editing message:', e);
             this.showToast(`Failed to edit message: ${e.message}`, 'error');
         }
     }

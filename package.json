@@ -3,8 +3,16 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@neondatabase/serverless": "^0.9.0",
+    "@neondatabase/serverless": "^0.10.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.4.5"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

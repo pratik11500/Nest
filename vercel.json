@@ -25,6 +25,10 @@
       "dest": "/api/heartbeat.js"
     },
     {
+      "src": "/api/typing",
+      "dest": "/api/typing.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/public/$1"
     }

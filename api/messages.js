@@ -1,18 +1,11 @@
-const { Pool } = require('pg');
-const jwt = require('jsonwebtoken');
+import { neon } from '@neondatabase/serverless';
+import jwt from 'jsonwebtoken';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // Neon DB connection string
-  ssl: { rejectUnauthorized: false } // Required for Neon
-});
-
+const sql = neon(process.env.DATABASE_URL); // Neon DB connection
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Replace with secure secret
 
-module.exports = async (req, res) => {
-  let client;
+export default async (req, res) => {
   try {
-    client = await pool.connect();
-
     // Authenticate user for POST and PATCH
     let user = null;
     if (req.method === 'POST' || req.method === 'PATCH') {
@@ -29,18 +22,18 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET') {
       // Fetch all messages with edit history
-      const result = await client.query(
-        `SELECT m.*, u.username AS author,
-                COALESCE(
-                  (SELECT json_agg(json_build_object('old_text', eh.old_text, 'edited_at', eh.edited_at))
-                   FROM edit_history eh WHERE eh.message_id = m.id),
-                  '[]'
-                ) AS edit_history
-         FROM messages m
-         JOIN users u ON m.author_id = u.id
-         ORDER BY m.created_at`
-      );
-      res.status(200).json(result.rows);
+      const messages = await sql`
+        SELECT m.*, u.username AS author,
+               COALESCE(
+                 (SELECT json_agg(json_build_object('old_text', eh.old_text, 'edited_at', eh.edited_at))
+                  FROM edit_history eh WHERE eh.message_id = m.id),
+                 '[]'
+               ) AS edit_history
+        FROM messages m
+        JOIN users u ON m.author_id = u.id
+        ORDER BY m.created_at
+      `;
+      res.status(200).json(messages);
     } else if (req.method === 'POST') {
       // Create a new message
       const { text, parent_message_id } = req.body;
@@ -48,18 +41,17 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Text is required' });
       }
 
-      const result = await client.query(
-        `INSERT INTO messages (author_id, text, parent_message_id)
-         VALUES ($1, $2, $3)
-         RETURNING id, author_id, text, created_at, parent_message_id, last_edited_at,
-                   (SELECT username FROM users WHERE id = $1) AS author,
-                   '[]'::json AS edit_history`,
-        [user.id, text, parent_message_id || null]
-      );
-      res.status(201).json(result.rows[0]);
+      const [newMessage] = await sql`
+        INSERT INTO messages (author_id, text, parent_message_id)
+        VALUES (${user.id}, ${text}, ${parent_message_id || null})
+        RETURNING id, author_id, text, created_at, parent_message_id, last_edited_at,
+                  (SELECT username FROM users WHERE id = ${user.id}) AS author,
+                  '[]'::json AS edit_history
+      `;
+      res.status(201).json(newMessage);
     } else if (req.method === 'PATCH') {
       // Edit an existing message
-      const messageId = req.path.split('/').pop(); // Extract ID from path
+      const messageId = req.url.split('/').pop(); // Extract ID from URL
       const { text } = req.body;
 
       if (!messageId) {
@@ -70,57 +62,53 @@ module.exports = async (req, res) => {
       }
 
       // Fetch current message
-      const messageResult = await client.query(
-        'SELECT * FROM messages WHERE id = $1',
-        [messageId]
-      );
-      if (messageResult.rows.length === 0) {
+      const [message] = await sql`
+        SELECT * FROM messages WHERE id = ${messageId}
+      `;
+      if (!message) {
         return res.status(404).json({ error: 'Message not found' });
       }
 
-      const message = messageResult.rows[0];
       if (message.author_id !== user.id) {
         return res.status(403).json({ error: 'Unauthorized to edit this message' });
       }
 
       // Insert current text into edit_history
-      await client.query(
-        'INSERT INTO edit_history (message_id, old_text, edited_at) VALUES ($1, $2, NOW())',
-        [messageId, message.text]
-      );
+      await sql`
+        INSERT INTO edit_history (message_id, old_text, edited_at)
+        VALUES (${messageId}, ${message.text}, NOW())
+      `;
 
       // Update message
-      await client.query(
-        'UPDATE messages SET text = $1, last_edited_at = NOW() WHERE id = $2',
-        [text, messageId]
-      );
+      await sql`
+        UPDATE messages
+        SET text = ${text}, last_edited_at = NOW()
+        WHERE id = ${messageId}
+      `;
 
       // Fetch updated message with edit history
-      const updatedResult = await client.query(
-        `SELECT m.*, u.username AS author,
-                COALESCE(
-                  (SELECT json_agg(json_build_object('old_text', eh.old_text, 'edited_at', eh.edited_at))
-                   FROM edit_history eh WHERE eh.message_id = m.id),
-                  '[]'
-                ) AS edit_history
-         FROM messages m
-         JOIN users u ON m.author_id = u.id
-         WHERE m.id = $1`,
-        [messageId]
-      );
+      const [updatedMessage] = await sql`
+        SELECT m.*, u.username AS author,
+               COALESCE(
+                 (SELECT json_agg(json_build_object('old_text', eh.old_text, 'edited_at', eh.edited_at))
+                  FROM edit_history eh WHERE eh.message_id = m.id),
+                 '[]'
+               ) AS edit_history
+        FROM messages m
+        JOIN users u ON m.author_id = u.id
+        WHERE m.id = ${messageId}
+      `;
 
-      if (updatedResult.rows.length === 0) {
+      if (!updatedMessage) {
         return res.status(500).json({ error: 'Failed to retrieve updated message' });
       }
 
-      res.status(200).json(updatedResult.rows[0]);
+      res.status(200).json(updatedMessage);
     } else {
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
     console.error('Error in messages.js:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
-  } finally {
-    if (client) client.release();
+    res.status(500).json({ error: `Server error: ${error.message}` });
   }
 };
