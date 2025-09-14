@@ -1,4 +1,4 @@
-// Nest Chat Application - Real-time Chat with Neon DB
+// Nest Chat Application - Real-time Chat with SSE and Neon DB
 class NestChat {
     constructor() {
         this.currentUser = null;
@@ -6,7 +6,7 @@ class NestChat {
         this.messages = [];
         this.onlineUsers = [];
         this.lastMessageId = 0;
-        this.pollingInterval = null;
+        this.es = null;
         this.userPollingInterval = null;
         this.heartbeatInterval = null;
 
@@ -209,6 +209,7 @@ class NestChat {
         await Promise.all([this.fetchMessages(), this.fetchOnlineUsers()]);
         this.renderMessages();
         this.updateOnlineUsers();
+        this.connectSSE();
         this.updateUserProfile();
         this.startRealTimeUpdates();
         this.scrollToBottom();
@@ -219,26 +220,40 @@ class NestChat {
         const res = await fetch('/api/messages');
         if (!res.ok) return;
         const data = await res.json();
-        this.messages = data;
-        if (this.messages.length > 0) {
-            this.lastMessageId = Math.max(...this.messages.map(m => m.id));
-        }
+        this.messages = data.map(m => ({
+            ...m,
+            isOwn: m.author === this.currentUser?.username
+        }));
+        this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
     }
 
-    async fetchNewMessages() {
-        if (!this.lastMessageId || !this.currentUser) return;
-        const res = await fetch(`/api/messages?since_id=${this.lastMessageId}`);
-        if (!res.ok) return;
-        const newMessages = await res.json();
-        if (newMessages.length === 0) return;
+    connectSSE() {
+        if (this.es) {
+            this.es.close();
+        }
 
-        this.lastMessageId = Math.max(this.lastMessageId, ...newMessages.map(m => m.id));
-        newMessages.forEach(msg => {
+        const url = new URL('/api/sse', location.origin);
+        url.searchParams.set('token', this.token);
+        url.searchParams.set('since_id', this.lastMessageId.toString());
+
+        this.es = new EventSource(url);
+
+        this.es.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.id <= this.lastMessageId) return;
+
+            this.lastMessageId = msg.id;
+            msg.isOwn = false; // From SSE: others' messages
             this.messages.push(msg);
             this.renderMessage(msg);
             this.scrollToBottom();
-        });
-        this.updateStats();
+            this.updateStats();
+        };
+
+        this.es.onerror = (err) => {
+            console.error('SSE connection error:', err);
+            // EventSource auto-reconnects
+        };
     }
 
     async fetchOnlineUsers() {
@@ -267,7 +282,9 @@ class NestChat {
 
             if (!res.ok) throw new Error();
 
+            msg.isOwn = true;
             this.messages.push(msg);
+            this.lastMessageId = msg.id;
             this.renderMessage(msg);
             this.scrollToBottom();
             this.updateStats();
@@ -294,7 +311,6 @@ class NestChat {
     }
 
     startRealTimeUpdates() {
-        this.pollingInterval = setInterval(() => this.fetchNewMessages(), 1000);
         this.userPollingInterval = setInterval(() => this.fetchOnlineUsers(), 5000);
         this.heartbeatInterval = setInterval(() => this.sendHeartbeat(), 30000);
     }
@@ -336,8 +352,7 @@ class NestChat {
         const container = document.getElementById('messagesContainer');
         const messageEl = document.createElement('div');
 
-        const isOwn = message.author === this.currentUser?.username;
-        messageEl.className = `message ${isOwn ? 'own-message' : ''}`;
+        messageEl.className = `message ${message.isOwn ? 'own-message' : ''}`;
         if (animate) messageEl.style.opacity = '0';
 
         const timestamp = new Date(message.created_at).toLocaleTimeString([], {
@@ -442,10 +457,13 @@ class NestChat {
 
     logout() {
         if (confirm('Are you sure you want to logout?')) {
+            if (this.es) {
+                this.es.close();
+                this.es = null;
+            }
             localStorage.removeItem('nestToken');
 
             // Clear intervals
-            if (this.pollingInterval) clearInterval(this.pollingInterval);
             if (this.userPollingInterval) clearInterval(this.userPollingInterval);
             if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
 
