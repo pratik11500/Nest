@@ -93,8 +93,64 @@ class NestChat {
         document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
         document.getElementById('cancelReplyBtn').addEventListener('click', () => this.cancelReply());
 
+        document.getElementById('clearChatBtn').addEventListener('click', () => {
+            this.toggleClearChatConfirm();
+        });
+
+        document.getElementById('confirmClearChat').addEventListener('click', () => {
+            this.handleClearChat();
+        });
+
+        document.getElementById('cancelClearChat').addEventListener('click', () => {
+            this.toggleClearChatConfirm();
+        });
+
         const messagesContainer = document.getElementById('messagesContainer');
         messagesContainer.addEventListener('scroll', this.handleScroll.bind(this));
+    }
+
+    toggleClearChatConfirm() {
+        const confirmDialog = document.getElementById('clearChatConfirm');
+        confirmDialog.classList.toggle('hidden');
+    }
+
+    async handleClearChat() {
+        try {
+            const res = await fetch('/api/clearChat', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders()
+                }
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Failed to clear chat');
+            }
+
+            // Clear messages array and reset lastMessageId
+            this.messages = [];
+            this.lastMessageId = 0;
+
+            // Reset messages container to show welcome message
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.innerHTML = `
+                <div class="welcome-message">
+                    <div class="welcome-icon">
+                        <div class="nest-symbol">N</div>
+                    </div>
+                    <h3>Welcome to Nest!</h3>
+                    <p>Start chatting and connecting with others in the community.</p>
+                </div>
+            `;
+
+            this.showToast('Chat cleared successfully', 'success');
+            document.getElementById('clearChatConfirm').classList.add('hidden');
+        } catch (error) {
+            console.error('Error clearing chat:', error);
+            this.showToast(error.message || 'Failed to clear chat', 'error');
+        }
     }
 
     debounce(func, wait) {

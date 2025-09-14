@@ -135,7 +135,7 @@
                 </div>
                 <div class="user-profile" id="userProfile">
                     <div class="profile-avatar">
-                        <span id="userInitials"></span>
+                        <span id="userInitials" class="user-initials"></span>
                         <img id="userAvatar" class="user-avatar-img" alt="User Avatar">
                         <div class="status-indicator online"></div>
                     </div>
@@ -213,6 +213,11 @@
 
             <!-- Message Input -->
             <div class="message-input-container">
+                <button type="button" class="clear-chat-btn" id="clearChatBtn" title="Clear Chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                </button>
                 <div class="message-input">
                     <input 
                         type="text" 
@@ -227,6 +232,11 @@
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                     </svg>
                 </button>
+                <div class="clear-chat-confirm hidden" id="clearChatConfirm">
+                    <p>Are you sure you want to clear all your chat messages? This cannot be undone.</p>
+                    <button class="primary-btn" id="confirmClearChat">Clear Chat</button>
+                    <button class="secondary-btn" id="cancelClearChat">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
