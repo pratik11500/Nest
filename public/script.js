@@ -11,6 +11,7 @@ class NestChat {
         this.heartbeatInterval = null;
         this.typingUsers = new Map(); // Map to track typing users and their timeouts
         this.replyingTo = null; // { id, author, text }
+        this.editingMessageId = null; // Track currently editing message
         this.typingTimeoutDuration = 3000; // 3 seconds timeout for typing
 
         this.init();
@@ -235,7 +236,8 @@ class NestChat {
             const data = await res.json();
             this.messages = data.map(m => ({
                 ...m,
-                isOwn: m.author === this.currentUser?.username
+                isOwn: m.author === this.currentUser?.username,
+                edit_history: m.edit_history || [] // Ensure edit_history is included
             }));
             this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
         } catch (e) {
@@ -260,12 +262,26 @@ class NestChat {
             try {
                 const data = JSON.parse(e.data);
                 if (data.type === 'message') {
-                    if (data.id <= this.lastMessageId) return;
-                    this.lastMessageId = data.id;
-                    data.isOwn = data.author === this.currentUser?.username;
-                    this.messages.push(data);
-                    this.renderMessage(data);
-                    this.scrollToBottom();
+                    // Check if message is an update to an existing message
+                    const existingMessageIndex = this.messages.findIndex(m => m.id === data.id);
+                    if (existingMessageIndex !== -1) {
+                        // Update existing message
+                        this.messages[existingMessageIndex] = {
+                            ...data,
+                            isOwn: data.author === this.currentUser?.username,
+                            edit_history: data.edit_history || []
+                        };
+                        this.renderMessages(); // Re-render to update edited message
+                    } else {
+                        // New message
+                        if (data.id <= this.lastMessageId) return;
+                        this.lastMessageId = data.id;
+                        data.isOwn = data.author === this.currentUser?.username;
+                        data.edit_history = data.edit_history || [];
+                        this.messages.push(data);
+                        this.renderMessage(data);
+                        this.scrollToBottom();
+                    }
                 } else if (data.type === 'typing') {
                     this.handleTypingEvent(data);
                 }
@@ -277,7 +293,6 @@ class NestChat {
         this.es.onerror = (err) => {
             console.error('SSE connection error:', err);
             this.showToast('Lost connection to server. Reconnecting...', 'warning');
-            // EventSource auto-reconnects
         };
 
         this.es.onopen = () => {
@@ -322,6 +337,7 @@ class NestChat {
             if (!res.ok) throw new Error(msg.error || 'Failed to send message');
 
             msg.isOwn = true;
+            msg.edit_history = msg.edit_history || [];
             this.messages.push(msg);
             this.lastMessageId = msg.id;
             this.renderMessage(msg);
@@ -329,7 +345,7 @@ class NestChat {
 
             input.value = '';
             this.cancelReply();
-            await this.sendTypingStatus(false); // Clear typing status after sending
+            await this.sendTypingStatus(false);
         } catch (e) {
             console.error('Error sending message:', e);
             this.showToast('Failed to send message', 'error');
@@ -356,7 +372,6 @@ class NestChat {
             console.log(`Typing status sent: ${isTyping}`);
 
             if (isTyping) {
-                // Reset typing timeout
                 if (this.typingUsers.has(this.currentUser.username)) {
                     clearTimeout(this.typingUsers.get(this.currentUser.username));
                 }
@@ -401,7 +416,6 @@ class NestChat {
         const container = document.getElementById('typingIndicators');
         container.innerHTML = '';
 
-        // Filter out current user
         const typingUsers = Array.from(this.typingUsers.keys()).filter(
             username => username !== this.currentUser?.username
         );
@@ -459,6 +473,153 @@ class NestChat {
             messageEl.classList.add('highlight');
             setTimeout(() => messageEl.classList.remove('highlight'), 2000);
         }
+    }
+
+    editMessage(messageId) {
+        if (this.editingMessageId) {
+            this.cancelEdit(); // Cancel any ongoing edit
+        }
+
+        const message = this.messages.find(m => m.id === messageId);
+        if (!message || !message.isOwn) return;
+
+        this.editingMessageId = messageId;
+
+        const messageEl = document.querySelector(`.message[data-message-id="${messageId}"] .message-content`);
+        if (!messageEl) return;
+
+        const messageText = messageEl.querySelector('.message-text').textContent;
+
+        messageEl.innerHTML = `
+            <div class="edit-message-container">
+                <textarea class="edit-message-input" rows="3">${this.escapeHtml(messageText)}</textarea>
+                <div class="edit-message-buttons">
+                    <button class="edit-save-btn">Save</button>
+                    <button class="edit-cancel-btn">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        const saveBtn = messageEl.querySelector('.edit-save-btn');
+        const cancelBtn = messageEl.querySelector('.edit-cancel-btn');
+        const input = messageEl.querySelector('.edit-message-input');
+
+        saveBtn.addEventListener('click', () => this.saveEdit(messageId));
+        cancelBtn.addEventListener('click', () => this.cancelEdit());
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.saveEdit(messageId);
+            }
+        });
+
+        input.focus();
+    }
+
+    async saveEdit(messageId) {
+        const messageEl = document.querySelector(`.message[data-message-id="${messageId}"] .edit-message-container`);
+        if (!messageEl) return;
+
+        const newText = messageEl.querySelector('.edit-message-input').value.trim();
+        if (!newText) {
+            this.showToast('Message cannot be empty', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/messages/${messageId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders()
+                },
+                body: JSON.stringify({ text: newText })
+            });
+
+            const updatedMessage = await res.json();
+            if (!res.ok) throw new Error(updatedMessage.error || 'Failed to edit message');
+
+            const messageIndex = this.messages.findIndex(m => m.id === messageId);
+            if (messageIndex !== -1) {
+                this.messages[messageIndex] = {
+                    ...this.messages[messageIndex],
+                    text: updatedMessage.text,
+                    edit_history: updatedMessage.edit_history || []
+                };
+                this.renderMessages();
+                this.editingMessageId = null;
+                this.showToast('Message updated', 'success');
+            }
+        } catch (e) {
+            console.error('Error editing message:', e);
+            this.showToast('Failed to edit message', 'error');
+        }
+    }
+
+    cancelEdit() {
+        if (!this.editingMessageId) return;
+
+        const message = this.messages.find(m => m.id === this.editingMessageId);
+        if (message) {
+            this.renderMessage(message, false);
+        }
+        this.editingMessageId = null;
+    }
+
+    showEditHistory(messageId) {
+        const message = this.messages.find(m => m.id === messageId);
+        if (!message || !message.edit_history || message.edit_history.length === 0) {
+            this.showToast('No edit history available', 'info');
+            return;
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'edit-history-modal';
+
+        let historyItems = message.edit_history.map((entry, index) => `
+            <div class="edit-history-item">
+                <span>${new Date(entry.edited_at).toLocaleString()}</span>
+                <p>${this.escapeHtml(entry.text)}</p>
+            </div>
+        `).join('');
+
+        // Include original message
+        historyItems = `
+            <div class="edit-history-item original">
+                <span>Original - ${new Date(message.created_at).toLocaleString()}</span>
+                <p>${this.escapeHtml(message.text)}</p>
+            </div>
+            ${historyItems}
+        `;
+
+        modal.innerHTML = `
+            <div class="edit-history-content">
+                <div class="edit-history-header">
+                    <h3>Edit History for ${this.escapeHtml(message.author)}'s Message</h3>
+                    <button class="close-modal-btn" title="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="edit-history-list">
+                    ${historyItems}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('.close-modal-btn').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        // Close modal on click outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
     }
 
     async sendHeartbeat() {
@@ -537,6 +698,9 @@ class NestChat {
             }
         }
 
+        const isEdited = message.edit_history && message.edit_history.length > 0;
+        const editedLabel = isEdited ? '<span class="edited-label">Edited</span>' : '';
+
         messageEl.innerHTML = `
             <div class="message-avatar">
                 ${this.getInitials(message.author)}
@@ -544,7 +708,7 @@ class NestChat {
             <div class="message-content">
                 <div class="message-header">
                     <span class="message-author">${this.escapeHtml(message.author)}</span>
-                    <span class="message-timestamp">${timestamp}</span>
+                    <span class="message-timestamp">${timestamp}${editedLabel}</span>
                 </div>
                 ${messageContent}
                 <button class="reply-btn" title="Reply">
@@ -552,20 +716,42 @@ class NestChat {
                         <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
                     </svg>
                 </button>
+                ${message.isOwn ? `
+                    <button class="edit-btn" title="Edit">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                ` : ''}
             </div>
         `;
 
         container.appendChild(messageEl);
 
         // Bind reply button
-        messageEl.querySelector('.reply-btn').addEventListener('click', () => {
+        messageEl.querySelector('.reply-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent triggering edit history
             this.handleReply(message.id);
+        });
+
+        // Bind edit button
+        if (message.isOwn) {
+            messageEl.querySelector('.edit-btn').addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering edit history
+                this.editMessage(message.id);
+            });
+        }
+
+        // Bind click on message content for edit history
+        messageEl.querySelector('.message-content').addEventListener('click', () => {
+            this.showEditHistory(message.id);
         });
 
         // Bind click on quoted message
         const quotedMessage = messageEl.querySelector('.quoted-message');
         if (quotedMessage) {
-            quotedMessage.addEventListener('click', () => {
+            quotedMessage.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering edit history
                 this.scrollToMessage(quotedMessage.dataset.messageId);
             });
         }
@@ -643,11 +829,9 @@ class NestChat {
             }
             localStorage.removeItem('nestToken');
 
-            // Clear intervals
             if (this.userPollingInterval) clearInterval(this.userPollingInterval);
             if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
 
-            // Clear typing users
             this.typingUsers.forEach((timeout) => clearTimeout(timeout));
             this.typingUsers.clear();
 
@@ -656,6 +840,7 @@ class NestChat {
             this.messages = [];
             this.onlineUsers = [];
             this.lastMessageId = 0;
+            this.editingMessageId = null;
             this.cancelReply();
 
             this.showToast('Successfully logged out', 'success');
@@ -711,7 +896,7 @@ class NestChat {
             warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
             info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>'
         };
-        return icons[type] || icons.success;
+        return icons[type] || icons.info;
     }
 
     getToastTitle(type) {
@@ -721,11 +906,9 @@ class NestChat {
             warning: 'Warning',
             info: 'Info'
         };
-        return titles[type] || 'Notification';
+        return titles[type] || 'Info';
     }
 }
 
 // Initialize the chat application
-document.addEventListener('DOMContentLoaded', () => {
-    new NestChat();
-});
+const chatApp = new NestChat();
