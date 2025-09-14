@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import formidable from 'formidable-serverless';
 
 export default async function handler(req, res) {
   const sql = neon(process.env.DATABASE_URL);
@@ -24,18 +25,38 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    // Handle profile updates (username only)
+    // Handle profile updates (multipart/form-data)
     if (req.headers['content-type']?.includes('multipart/form-data')) {
-      const { username, bio, profilePicture } = req.body;
-
-      if (!username) {
-        console.warn('No valid fields provided for profile update');
-        return res.status(400).json({ error: 'Username is required' });
-      }
+      const form = formidable({ multiples: false, maxFileSize: 2 * 1024 * 1024 });
 
       try {
+        const { fields, files } = await new Promise((resolve, reject) => {
+          form.parse(req, (err, fields, files) => {
+            if (err) reject(err);
+            else resolve({ fields, files });
+          });
+        });
+
+        const { username, bio } = fields;
+        const profilePicture = files.profilePicture;
+
+        if (!username) {
+          console.warn('No username provided for profile update');
+          return res.status(400).json({ error: 'Username is required' });
+        }
+
         if (username.length < 3) {
           return res.status(400).json({ error: 'Username must be at least 3 characters' });
+        }
+
+        if (bio) {
+          console.warn('Bio update attempted but bio column not supported');
+          return res.status(400).json({ error: 'Bio updates are not supported' });
+        }
+
+        if (profilePicture) {
+          console.warn('Profile picture update attempted but profile_picture column not supported');
+          return res.status(400).json({ error: 'Profile picture updates are not supported' });
         }
 
         const query = `
@@ -65,8 +86,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Handle password update
-    const { currentPassword, newPassword, email } = req.body;
+    // Handle password or email update (JSON)
+    const { currentPassword, newPassword, email } = req.body || {};
 
     if (!currentPassword) {
       console.warn('Missing current password for account update');
@@ -74,7 +95,6 @@ export default async function handler(req, res) {
     }
 
     try {
-      // Verify current password
       const userResult = await sql('SELECT password_hash FROM users WHERE id = $1', [userId]);
       if (userResult.length === 0) {
         console.warn('User not found for id:', userId);
@@ -98,7 +118,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ message: 'Password updated successfully' });
       }
 
-      // Email updates are not supported
       if (email) {
         console.warn('Email update attempted but email column not supported');
         return res.status(400).json({ error: 'Email updates are not supported' });
@@ -112,7 +131,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const { currentPassword } = req.body;
+    const { currentPassword } = req.body || {};
 
     if (!currentPassword) {
       console.warn('Missing current password for account deletion');
