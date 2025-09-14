@@ -694,11 +694,22 @@ class NestChat {
 
     updateUserProfile() {
         const userInitials = document.getElementById('userInitials');
+        const userAvatar = document.getElementById('userAvatar');
         const currentUsername = document.getElementById('currentUsername');
+        const userBio = document.getElementById('userBio');
 
         if (this.currentUser) {
-            userInitials.textContent = this.getInitials(this.currentUser.username);
+            if (this.currentUser.profile_picture) {
+                userAvatar.src = this.currentUser.profile_picture;
+                userAvatar.style.display = 'block';
+                userInitials.style.display = 'none';
+            } else {
+                userInitials.textContent = this.getInitials(this.currentUser.username);
+                userInitials.style.display = 'flex';
+                userAvatar.style.display = 'none';
+            }
             currentUsername.textContent = this.currentUser.username;
+            userBio.textContent = this.currentUser.bio || '';
         }
     }
 
@@ -754,14 +765,19 @@ class NestChat {
         const isEdited = message.edit_history && message.edit_history.length > 0;
         const editedLabel = isEdited ? '<span class="edited-label">Edited</span>' : '';
 
+        const avatarContent = message.isOwn && this.currentUser.profile_picture
+            ? `<img src="${this.currentUser.profile_picture}" class="message-avatar-img" alt="Avatar">`
+            : this.getInitials(message.author);
+
         messageEl.innerHTML = `
             <div class="message-avatar">
-                ${this.getInitials(message.author)}
+                ${avatarContent}
             </div>
             <div class="message-content">
                 <div class="message-header">
                     <span class="message-author">${this.escapeHtml(message.author)}</span>
                     <span class="message-timestamp">${timestamp}${editedLabel}</span>
+                    ${message.bio ? `<div class="message-bio">${this.escapeHtml(message.bio)}</div>` : ''}
                 </div>
                 ${messageContent}
                 <button class="reply-btn" title="Reply">
@@ -842,14 +858,19 @@ class NestChat {
                 statusText = diffMinutes < 60 ? `${diffMinutes}m ago` : `${Math.floor(diffMinutes / 60)}h ago`;
             }
 
+            const avatarContent = user.profile_picture
+                ? `<img src="${user.profile_picture}" class="user-avatar-img" alt="Avatar">`
+                : this.getInitials(user.username);
+
             userEl.innerHTML = `
                 <div class="user-avatar">
-                    ${this.getInitials(user.username)}
+                    ${avatarContent}
                     <div class="status-indicator online"></div>
                 </div>
                 <div class="user-info">
                     <div class="user-name">${user.username}</div>
                     <div class="user-status">${statusText}</div>
+                    ${user.bio ? `<div class="user-bio">${this.escapeHtml(user.bio)}</div>` : ''}
                 </div>
             `;
 

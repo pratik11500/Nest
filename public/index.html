@@ -8,9 +8,52 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #2c2c54;
+            border-radius: 6px;
+        }
+        .profile-avatar {
+            position: relative;
+            width: 32px;
+            height: 32px;
+        }
+        .user-avatar-img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: none;
+        }
+        .user-initials {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #5858a7;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .profile-info {
+            flex-grow: 1;
+        }
+        .user-bio {
+            font-size: 0.8rem;
+            color: #d1d1f1;
+            margin-top: 4px;
+            max-width: 200px;
+            word-wrap: break-word;
+        }
+    </style>
 </head>
 <body>
-
     <!-- Authentication Container -->
     <div id="authContainer" class="auth-container">
         <div class="auth-card">
@@ -93,11 +136,13 @@
                 <div class="user-profile" id="userProfile">
                     <div class="profile-avatar">
                         <span id="userInitials"></span>
+                        <img id="userAvatar" class="user-avatar-img" alt="User Avatar">
                         <div class="status-indicator online"></div>
                     </div>
                     <div class="profile-info">
                         <span id="currentUsername"></span>
                         <div class="status-text">Online</div>
+                        <div id="userBio" class="user-bio"></div>
                     </div>
                     <button class="logout-btn" id="logoutBtn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -191,6 +236,6 @@
         <!-- Toasts will appear here -->
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js" type="module"></script>
 </body>
 </html>

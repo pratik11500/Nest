@@ -1520,3 +1520,18 @@ textarea:focus {
     background: rgba(139, 92, 246, 0.2);
     transition: background 0.5s ease;
 }
+
+.user-avatar-img, .message-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.message-bio, .user-bio {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 4px;
+    max-width: 200px;
+    word-wrap: break-word;
+}
