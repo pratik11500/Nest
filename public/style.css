@@ -621,17 +621,24 @@ body {
     background: var(--darker-bg);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.creator-toggle:hover {
+    background: var(--surface-light);
 }
 
 .creator-toggle span {
     font-size: 14px;
+    font-weight: var(--font-weight-medium);
     color: var(--text-secondary);
 }
 
 .creator-toggle img {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     object-fit: contain;
 }
 
@@ -653,23 +660,20 @@ body {
     justify-content: space-between;
 }
 
-.channel-info h2 {
-    font-size: 20px;
-    font-weight: var(--font-weight-semibold);
-    margin-bottom: 4px;
+.nest-title {
+    display: none; /* Hidden by default, shown in mobile view */
 }
 
-.channel-info p {
-    font-size: 14px;
-    color: var(--text-secondary);
+.nest-title h2 {
+    font-size: 24px;
+    font-weight: var(--font-weight-bold);
+    background: linear-gradient(135deg, var(--primary-purple) 0%, var(--accent-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
-.chat-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.action-btn {
+.settings-btn {
     width: 40px;
     height: 40px;
     background: none;
@@ -683,7 +687,7 @@ body {
     transition: all var(--transition-fast);
 }
 
-.action-btn:hover {
+.settings-btn:hover {
     background: var(--surface-light);
     color: var(--text-primary);
     border-color: var(--primary-purple);
@@ -766,6 +770,7 @@ body {
     border-radius: var(--border-radius-md);
     padding: 8px 12px;
     max-width: 100%;
+    position: relative;
 }
 
 .own-message .message-content {
@@ -819,6 +824,44 @@ body {
     background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
 }
 
+.reply-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--border-radius-sm);
+    transition: all var(--transition-fast);
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: none;
+}
+
+.message-content:hover .reply-btn {
+    display: block;
+}
+
+.reply-btn:hover {
+    color: var(--primary-purple);
+    background: rgba(139, 92, 246, 0.1);
+}
+
+.quoted-message {
+    background: rgba(0, 0, 0, 0.1);
+    border-left: 2px solid var(--primary-purple);
+    padding: 8px;
+    margin-bottom: 8px;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    border-radius: var(--border-radius-sm);
+}
+
+.own-message .quoted-message {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
 /* Typing Indicators */
 .typing-indicators {
     padding: 0 24px 12px;
@@ -855,12 +898,15 @@ body {
     padding: 10px 10px;
     border-top: 1px solid var(--border-color);
     background: var(--surface-dark);
-}
-
-.message-input {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+
+.message-input {
+    flex: 1;
+    display: flex;
+    align-items: center;
     padding: 8px 12px;
     background: var(--dark-bg);
     border: 2px solid var(--border-color);
@@ -905,17 +951,14 @@ body {
     color: var(--text-muted);
 }
 
-.message-actions {
-    display: flex;
-    gap: 8px;
-}
-
 .send-btn {
     background: linear-gradient(135deg, var(--primary-purple) 0%, var(--primary-purple-dark) 100%);
     border: none;
     color: white;
     cursor: pointer;
-    padding: 10px;
+    padding: 0;
+    width: 50px;
+    height: 50px;
     border-radius: var(--border-radius-md);
     transition: all var(--transition-fast);
     display: flex;
@@ -1077,18 +1120,6 @@ body {
     }
 }
 
-@keyframes messagePulse {
-    0% {
-        background: var(--dark-bg);
-    }
-    50% {
-        background: rgba(139, 92, 246, 0.05);
-    }
-    100% {
-        background: var(--dark-bg);
-    }
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .sidebar {
@@ -1123,6 +1154,10 @@ body {
 
     .message {
         max-width: 85%;
+    }
+
+    .nest-title {
+        display: block;
     }
 }
 

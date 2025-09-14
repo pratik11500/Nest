@@ -86,6 +86,7 @@ class NestChat {
 
         document.getElementById('sendBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+        document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
 
         // Auto-scroll messages
         const messagesContainer = document.getElementById('messagesContainer');
@@ -291,6 +292,15 @@ class NestChat {
         }
     }
 
+    handleReply(messageId) {
+        const message = this.messages.find(m => m.id === messageId);
+        if (!message) return;
+
+        const input = document.getElementById('messageInput');
+        input.value = `> ${message.author}: ${message.text}\n`;
+        input.focus();
+    }
+
     async sendHeartbeat() {
         if (!this.token || !this.currentUser) return;
         try {
@@ -346,12 +356,24 @@ class NestChat {
         const messageEl = document.createElement('div');
 
         messageEl.className = `message ${message.isOwn ? 'own-message' : ''}`;
+        messageEl.dataset.messageId = message.id;
         if (animate) messageEl.style.opacity = '0';
 
         const timestamp = new Date(message.created_at).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
         });
+
+        let messageContent = `<div class="message-text">${this.escapeHtml(message.text)}</div>`;
+        if (message.text.startsWith('>')) {
+            const quoteParts = message.text.split('\n');
+            const quote = quoteParts[0].slice(1).trim(); // Remove '>'
+            const replyText = quoteParts.slice(1).join('\n').trim();
+            messageContent = `
+                <div class="quoted-message">${this.escapeHtml(quote)}</div>
+                <div class="message-text">${this.escapeHtml(replyText)}</div>
+            `;
+        }
 
         messageEl.innerHTML = `
             <div class="message-avatar">
@@ -362,11 +384,21 @@ class NestChat {
                     <span class="message-author">${message.author}</span>
                     <span class="message-timestamp">${timestamp}</span>
                 </div>
-                <div class="message-text">${this.escapeHtml(message.text)}</div>
+                ${messageContent}
+                <button class="reply-btn" title="Reply">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
+                    </svg>
+                </button>
             </div>
         `;
 
         container.appendChild(messageEl);
+
+        // Bind reply button
+        messageEl.querySelector('.reply-btn').addEventListener('click', () => {
+            this.handleReply(message.id);
+        });
 
         if (animate) {
             setTimeout(() => {
@@ -427,6 +459,10 @@ class NestChat {
 
     handleScroll() {
         // Placeholder for scroll logic
+    }
+
+    showSettings() {
+        this.showToast('Settings feature coming soon!', 'info');
     }
 
     logout() {
@@ -497,7 +533,8 @@ class NestChat {
         const icons = {
             success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
             error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
-            warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>'
+            warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
+            info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>'
         };
         return icons[type] || icons.success;
     }
@@ -506,7 +543,8 @@ class NestChat {
         const titles = {
             success: 'Success',
             error: 'Error',
-            warning: 'Warning'
+            warning: 'Warning',
+            info: 'Info'
         };
         return titles[type] || 'Notification';
     }
