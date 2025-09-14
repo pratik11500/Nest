@@ -88,7 +88,7 @@ class NestChat {
             }
         });
 
-        messageInput.addEventListener('input', () => this.sendTypingStatus());
+        messageInput.addEventListener('input', this.debounce(() => this.sendTypingStatus(), 500));
 
         document.getElementById('sendBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
@@ -98,6 +98,14 @@ class NestChat {
         // Auto-scroll messages
         const messagesContainer = document.getElementById('messagesContainer');
         messagesContainer.addEventListener('scroll', this.handleScroll.bind(this));
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
     }
 
     async checkAuthentication() {
@@ -302,8 +310,6 @@ class NestChat {
             input.value = '';
             this.cancelReply();
             this.sendTypingStatus(false);
-
-            this.showToast('Message sent!', 'success', 2000);
         } catch (e) {
             this.showToast('Failed to send message', 'error');
         }
@@ -344,7 +350,7 @@ class NestChat {
                     body: JSON.stringify({ isTyping: false })
                 });
             } catch (e) {
-                console.error('Failed to send typing status:', e);
+                console.error('Failed to stop typing status:', e);
             }
         }
     }
@@ -369,8 +375,8 @@ class NestChat {
 
         const usernames = Array.from(this.typingUsers);
         const text = usernames.length > 2
-            ? `${usernames.slice(0, 2).join(', ')} and ${usernames.length - 2} others are typing`
-            : usernames.join(' and ') + (usernames.length > 1 ? ' are typing' : ' is typing');
+            ? `${usernames.slice(0, 2).join(', ')} and ${usernames.length - 2} others are typing...`
+            : usernames.join(' and ') + (usernames.length > 1 ? ' are typing...' : ' is typing...');
 
         const indicator = document.createElement('div');
         indicator.className = 'typing-indicator';
@@ -396,13 +402,14 @@ class NestChat {
         };
 
         const replyingIndicator = document.getElementById('replyingIndicator');
-        const replyingTo = document.getElementById('replyingTo');
-        replyingTo.textContent = `Replying to ${message.author}: ${message.text.substring(0, 50)}${message.text.length > 50 ? '...' : ''}`;
+        const replyingToAuthor = document.getElementById('replyingToAuthor');
+        const replyingToText = document.getElementById('replyingToText');
+
+        replyingToAuthor.textContent = message.author;
+        replyingToText.textContent = message.text;
         replyingIndicator.classList.remove('hidden');
 
-        const input = document.getElementById('messageInput');
-        input.value = `> ${message.author}: ${message.text}\n`;
-        input.focus();
+        document.getElementById('messageInput').focus();
     }
 
     cancelReply() {
@@ -455,12 +462,11 @@ class NestChat {
         const container = document.getElementById('messagesContainer');
         const welcomeMessage = container.querySelector('.welcome-message');
 
-        if (this.messages.length === 0) {
+        if (this.messages.length > 0) {
+            if (welcomeMessage) welcomeMessage.style.display = 'none';
+        } else {
             if (welcomeMessage) welcomeMessage.style.display = 'block';
-            return;
         }
-
-        if (welcomeMessage) welcomeMessage.style.display = 'none';
 
         const existingMessages = container.querySelectorAll('.message');
         existingMessages.forEach(msg => msg.remove());
