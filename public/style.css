@@ -835,7 +835,7 @@ body {
     border-radius: var(--border-radius-sm);
     transition: all var(--transition-fast);
     position: absolute;
-    top: 30px;
+    bottom: -7px;
     right: 8px;
     display: none;
 }
