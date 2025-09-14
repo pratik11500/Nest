@@ -14,12 +14,12 @@ export default async function handler(req, res) {
   }
 
   const token = authHeader.split(' ')[1];
-  let userId;
+  let username;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    userId = decoded.userId;
-    console.log('Token verified, userId:', userId);
+    username = decoded.username; // Assuming JWT contains username
+    console.log('Token verified, username:', username);
   } catch (error) {
     console.error('JWT verification failed:', error.message);
     return res.status(401).json({ error: 'Invalid token' });
@@ -28,8 +28,8 @@ export default async function handler(req, res) {
   const sql = neon(process.env.DATABASE_URL);
 
   try {
-    await sql('DELETE FROM messages WHERE sender_id = $1', [userId]);
-    console.log('Messages cleared for userId:', userId);
+    await sql('DELETE FROM messages WHERE author = $1', [username]);
+    console.log('Messages cleared for username:', username);
     return res.status(200).json({ message: 'Chat cleared successfully' });
   } catch (error) {
     console.error('Error clearing chat:', error);
