@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
   try {
     const query = `
-      SELECT id, username, profile_picture 
+      SELECT id, username 
       FROM users 
       WHERE id = $1
     `;
@@ -43,16 +43,11 @@ export default async function handler(req, res) {
     const user = result[0];
     console.log('User fetched:', { id: user.id, username: user.username });
 
-    // Convert profile_picture (BYTEA) to base64 if present
-    const profilePicture = user.profile_picture 
-      ? `data:image/jpeg;base64,${Buffer.from(user.profile_picture).toString('base64')}`
-      : null;
-
     return res.status(200).json({
       id: user.id,
       username: user.username,
-      bio: null, // Set to null since bio column doesn't exist
-      profile_picture: profilePicture
+      bio: null,
+      profile_picture: null
     });
   } catch (error) {
     console.error('Database query failed:', error);

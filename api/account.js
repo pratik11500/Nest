@@ -24,50 +24,27 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    // Handle profile updates (username, profile_picture)
+    // Handle profile updates (username only)
     if (req.headers['content-type']?.includes('multipart/form-data')) {
-      const { username, profilePicture } = req.body;
+      const { username, bio, profilePicture } = req.body;
 
-      if (!username && !profilePicture) {
+      if (!username) {
         console.warn('No valid fields provided for profile update');
-        return res.status(400).json({ error: 'At least one field (username, profilePicture) is required' });
+        return res.status(400).json({ error: 'Username is required' });
       }
 
       try {
-        const updates = {};
-        const params = [];
-        let paramIndex = 1;
-
-        if (username) {
-          if (username.length < 3) {
-            return res.status(400).json({ error: 'Username must be at least 3 characters' });
-          }
-          updates.username = `username = $${paramIndex++}`;
-          params.push(username);
-        }
-
-        if (profilePicture) {
-          if (profilePicture.size > 2 * 1024 * 1024) {
-            return res.status(400).json({ error: 'Profile picture must be less than 2MB' });
-          }
-          // Assuming profilePicture is a Buffer or base64 string
-          updates.profile_picture = `profile_picture = $${paramIndex++}`;
-          params.push(Buffer.from(profilePicture, 'base64')); // Adjust based on actual input format
-        }
-
-        if (Object.keys(updates).length === 0) {
-          return res.status(400).json({ error: 'No valid fields to update' });
+        if (username.length < 3) {
+          return res.status(400).json({ error: 'Username must be at least 3 characters' });
         }
 
         const query = `
           UPDATE users
-          SET ${Object.values(updates).join(', ')}
-          WHERE id = $${paramIndex}
-          RETURNING username, profile_picture
+          SET username = $1
+          WHERE id = $2
+          RETURNING username
         `;
-        params.push(userId);
-
-        const result = await sql(query, params);
+        const result = await sql(query, [username, userId]);
 
         if (result.length === 0) {
           console.warn('User not found for id:', userId);
@@ -77,14 +54,10 @@ export default async function handler(req, res) {
         const updatedUser = result[0];
         console.log('Profile updated:', { id: userId, username: updatedUser.username });
 
-        const profilePictureBase64 = updatedUser.profile_picture
-          ? `data:image/jpeg;base64,${Buffer.from(updatedUser.profile_picture).toString('base64')}`
-          : null;
-
         return res.status(200).json({
           message: 'Profile updated successfully',
           username: updatedUser.username,
-          profile_picture: profilePictureBase64
+          profile_picture: null
         });
       } catch (error) {
         console.error('Profile update failed:', error);
@@ -95,8 +68,8 @@ export default async function handler(req, res) {
     // Handle password update
     const { currentPassword, newPassword, email } = req.body;
 
-    if (!currentPassword && !email) {
-      console.warn('Missing required fields for account update');
+    if (!currentPassword) {
+      console.warn('Missing current password for account update');
       return res.status(400).json({ error: 'Current password is required' });
     }
 
@@ -125,7 +98,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ message: 'Password updated successfully' });
       }
 
-      // Email updates are not supported (no email column)
+      // Email updates are not supported
       if (email) {
         console.warn('Email update attempted but email column not supported');
         return res.status(400).json({ error: 'Email updates are not supported' });
