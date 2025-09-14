@@ -9,10 +9,10 @@ class NestChat {
         this.es = null;
         this.userPollingInterval = null;
         this.heartbeatInterval = null;
-        this.typingUsers = new Map(); // Map to track typing users and their timeouts
-        this.replyingTo = null; // { id, author, text }
-        this.editingMessageId = null; // Track currently editing message
-        this.typingTimeoutDuration = 3000; // 3 seconds timeout for typing
+        this.typingUsers = new Map();
+        this.replyingTo = null;
+        this.editingMessageId = null;
+        this.typingTimeoutDuration = 3000;
 
         this.init();
     }
@@ -50,12 +50,11 @@ class NestChat {
     }
 
     getAuthHeaders() {
-        console.log('Auth Token:', this.token); // Log token for debugging
+        console.log('Auth Token:', this.token);
         return { Authorization: `Bearer ${this.token}` };
     }
 
     bindEvents() {
-        // Authentication events
         document.getElementById('showRegister').addEventListener('click', (e) => {
             e.preventDefault();
             this.showRegisterForm();
@@ -69,7 +68,6 @@ class NestChat {
         document.getElementById('loginBtn').addEventListener('click', () => this.handleLogin());
         document.getElementById('registerBtn').addEventListener('click', () => this.handleRegister());
 
-        // Enter key for forms
         ['loginUsername', 'loginPassword'].forEach(id => {
             document.getElementById(id).addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.handleLogin();
@@ -82,7 +80,6 @@ class NestChat {
             });
         });
 
-        // Chat events
         const messageInput = document.getElementById('messageInput');
         messageInput.addEventListener('input', this.debounce(() => this.sendTypingStatus(true), 500));
         messageInput.addEventListener('keypress', (e) => {
@@ -97,7 +94,6 @@ class NestChat {
         document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
         document.getElementById('cancelReplyBtn').addEventListener('click', () => this.cancelReply());
 
-        // Auto-scroll messages
         const messagesContainer = document.getElementById('messagesContainer');
         messagesContainer.addEventListener('scroll', this.handleScroll.bind(this));
     }
@@ -239,7 +235,7 @@ class NestChat {
                 ...m,
                 isOwn: m.author === this.currentUser?.username,
                 edit_history: m.edit_history || [],
-                last_edited_at: m.last_edited_at // Include last_edited_at
+                last_edited_at: m.last_edited_at
             }));
             this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
         } catch (e) {
@@ -264,19 +260,16 @@ class NestChat {
             try {
                 const data = JSON.parse(e.data);
                 if (data.type === 'message') {
-                    // Check if message is an update to an existing message
                     const existingMessageIndex = this.messages.findIndex(m => m.id === data.id);
                     if (existingMessageIndex !== -1) {
-                        // Update existing message
                         this.messages[existingMessageIndex] = {
                             ...data,
                             isOwn: data.author === this.currentUser?.username,
                             edit_history: data.edit_history || [],
                             last_edited_at: data.last_edited_at
                         };
-                        this.renderMessages(); // Re-render to update edited message
+                        this.renderMessages();
                     } else {
-                        // New message
                         if (data.id <= this.lastMessageId) return;
                         this.lastMessageId = data.id;
                         data.isOwn = data.author === this.currentUser?.username;
@@ -482,7 +475,7 @@ class NestChat {
 
     editMessage(messageId) {
         if (this.editingMessageId) {
-            this.cancelEdit(); // Cancel any ongoing edit
+            this.cancelEdit();
         }
 
         const message = this.messages.find(m => m.id === messageId);
@@ -553,8 +546,15 @@ class NestChat {
             });
 
             console.log('PATCH response status:', res.status, 'ok:', res.ok);
-            const updatedMessage = await res.json();
-            console.log('PATCH response body:', updatedMessage);
+            let updatedMessage;
+            try {
+                updatedMessage = await res.json();
+                console.log('PATCH response body:', updatedMessage);
+            } catch (jsonError) {
+                const responseText = await res.text();
+                console.error('Failed to parse JSON response:', jsonError, 'Response text:', responseText);
+                throw new Error(`Invalid server response: ${responseText.slice(0, 100)}...`);
+            }
 
             if (!res.ok) {
                 throw new Error(updatedMessage.error || `Failed to edit message (Status: ${res.status})`);
@@ -612,7 +612,6 @@ class NestChat {
             </div>
         `).join('');
 
-        // Include current message (not original, as original is in edit_history)
         historyItems = `
             <div class="edit-history-item current">
                 <span>Current - ${message.last_edited_at ? new Date(message.last_edited_at).toLocaleString() : new Date(message.created_at).toLocaleString()}</span>
@@ -756,13 +755,11 @@ class NestChat {
 
         container.appendChild(messageEl);
 
-        // Bind reply button
         messageEl.querySelector('.reply-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             this.handleReply(message.id);
         });
 
-        // Bind edit button
         if (message.isOwn) {
             messageEl.querySelector('.edit-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -770,12 +767,10 @@ class NestChat {
             });
         }
 
-        // Bind click on message content for edit history
         messageEl.querySelector('.message-content').addEventListener('click', () => {
             this.showEditHistory(message.id);
         });
 
-        // Bind click on quoted message
         const quotedMessage = messageEl.querySelector('.quoted-message');
         if (quotedMessage) {
             quotedMessage.addEventListener('click', (e) => {

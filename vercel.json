@@ -1,1 +1,32 @@
-{}
+{
+  "routes": [
+    {
+      "src": "/api/messages/(.*)",
+      "dest": "/api/messages.js"
+    },
+    {
+      "src": "/api/auth",
+      "dest": "/api/auth.js"
+    },
+    {
+      "src": "/api/users",
+      "dest": "/api/users.js"
+    },
+    {
+      "src": "/api/me",
+      "dest": "/api/me.js"
+    },
+    {
+      "src": "/api/sse",
+      "dest": "/api/sse.js"
+    },
+    {
+      "src": "/api/heartbeat",
+      "dest": "/api/heartbeat.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ]
+}
