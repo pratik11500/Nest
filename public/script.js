@@ -84,10 +84,6 @@ class NestChat {
             }
         });
 
-        document.getElementById('messageInput').addEventListener('input', () => {
-            this.updateCharCount();
-        });
-
         document.getElementById('sendBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
 
@@ -247,7 +243,6 @@ class NestChat {
             this.messages.push(msg);
             this.renderMessage(msg);
             this.scrollToBottom();
-            this.updateStats();
         };
 
         this.es.onerror = (err) => {
@@ -287,10 +282,8 @@ class NestChat {
             this.lastMessageId = msg.id;
             this.renderMessage(msg);
             this.scrollToBottom();
-            this.updateStats();
 
             input.value = '';
-            this.updateCharCount();
 
             this.showToast('Message sent!', 'success', 2000);
         } catch (e) {
@@ -425,25 +418,6 @@ class NestChat {
 
             usersList.appendChild(userEl);
         });
-    }
-
-    updateStats() {
-        document.getElementById('messageCount').textContent = this.messages.length;
-        document.getElementById('userCount').textContent = this.onlineUsers.length;
-    }
-
-    updateCharCount() {
-        const input = document.getElementById('messageInput');
-        const charCount = document.getElementById('charCount');
-        charCount.textContent = input.value.length;
-
-        if (input.value.length > 450) {
-            charCount.style.color = 'var(--warning-color)';
-        } else if (input.value.length > 480) {
-            charCount.style.color = 'var(--error-color)';
-        } else {
-            charCount.style.color = 'var(--text-muted)';
-        }
     }
 
     scrollToBottom() {
