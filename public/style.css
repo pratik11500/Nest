@@ -1535,3 +1535,60 @@ textarea:focus {
     max-width: 200px;
     word-wrap: break-word;
 }
+
+/* Existing styles ... */
+.user-avatar-img, .message-avatar-img, .profile-picture-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.profile-picture-preview {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #5858a7;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+.profile-picture-img {
+    width: 64px;
+    height: 64px;
+}
+.message-bio, .user-bio {
+    font-size: 0.8rem;
+    color: #d1d1f1;
+    margin-top: 4px;
+    max-width: 200px;
+    word-wrap: break-word;
+}
+.primary-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow: hidden;
+}
+.btn-loader {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+.primary-btn.loading .btn-loader {
+    display: block;
+}
+.primary-btn.loading span {
+    visibility: hidden;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
