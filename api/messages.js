@@ -2,15 +2,17 @@ const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL // Neon DB connection string
+  connectionString: process.env.DATABASE_URL, // Neon DB connection string
+  ssl: { rejectUnauthorized: false } // Required for Neon
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Replace with secure secret
 
 module.exports = async (req, res) => {
-  const client = await pool.connect();
-
+  let client;
   try {
+    client = await pool.connect();
+
     // Authenticate user for POST and PATCH
     let user = null;
     if (req.method === 'POST' || req.method === 'PATCH') {
@@ -57,10 +59,10 @@ module.exports = async (req, res) => {
       res.status(201).json(result.rows[0]);
     } else if (req.method === 'PATCH') {
       // Edit an existing message
-      const { id } = req.params;
+      const messageId = req.path.split('/').pop(); // Extract ID from path
       const { text } = req.body;
 
-      if (!id) {
+      if (!messageId) {
         return res.status(400).json({ error: 'Message ID is required' });
       }
       if (!text) {
@@ -70,7 +72,7 @@ module.exports = async (req, res) => {
       // Fetch current message
       const messageResult = await client.query(
         'SELECT * FROM messages WHERE id = $1',
-        [id]
+        [messageId]
       );
       if (messageResult.rows.length === 0) {
         return res.status(404).json({ error: 'Message not found' });
@@ -84,13 +86,13 @@ module.exports = async (req, res) => {
       // Insert current text into edit_history
       await client.query(
         'INSERT INTO edit_history (message_id, old_text, edited_at) VALUES ($1, $2, NOW())',
-        [id, message.text]
+        [messageId, message.text]
       );
 
       // Update message
       await client.query(
         'UPDATE messages SET text = $1, last_edited_at = NOW() WHERE id = $2',
-        [text, id]
+        [text, messageId]
       );
 
       // Fetch updated message with edit history
@@ -104,7 +106,7 @@ module.exports = async (req, res) => {
          FROM messages m
          JOIN users u ON m.author_id = u.id
          WHERE m.id = $1`,
-        [id]
+        [messageId]
       );
 
       if (updatedResult.rows.length === 0) {
@@ -116,9 +118,9 @@ module.exports = async (req, res) => {
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Error handling messages:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error in messages.js:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
