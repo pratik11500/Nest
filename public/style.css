@@ -844,11 +844,6 @@ body {
     display: block;
 }
 
-.reply-btn:hover {
-    color: #fff;
-    background: rgba(139, 92, 246, 0.1);
-}
-
 .quoted-message {
     background: rgba(0, 0, 0, 0.1);
     border-left: 2px solid var(--primary-purple);
