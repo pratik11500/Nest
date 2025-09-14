@@ -710,6 +710,7 @@ body {
     text-align: center;
     margin: 60px 0;
     opacity: 0.7;
+    display: none; /* Hidden by default, shown only when no messages */
 }
 
 .welcome-icon {
@@ -860,8 +861,8 @@ body {
 }
 
 .quoted-message {
-    background: rgba(0, 0, 0, 0.15);
-    border-left: 3px solid var(--primary-purple);
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 4px solid var(--primary-purple);
     padding: 8px 12px;
     margin-bottom: 8px;
     font-size: 0.8125rem;
@@ -870,25 +871,34 @@ body {
     cursor: pointer;
     transition: all var(--transition-fast);
     font-style: italic;
+    max-height: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .quoted-message:hover {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.25);
 }
 
 .own-message .quoted-message {
-    background: rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+    border-left-color: var(--accent-purple);
 }
 
 .own-message .quoted-message:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.25);
 }
 
 .quoted-message .quote-author {
     font-weight: var(--font-weight-medium);
     margin-bottom: 4px;
     font-style: normal;
+    color: var(--text-primary);
+}
+
+.own-message .quoted-message .quote-author {
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .quoted-message .quote-text {

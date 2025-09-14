@@ -9,9 +9,9 @@ class NestChat {
         this.es = null;
         this.userPollingInterval = null;
         this.heartbeatInterval = null;
-        this.typingUsers = new Set();
-        this.typingTimeout = null;
+        this.typingUsers = new Map(); // Map to track typing users and their timeouts
         this.replyingTo = null; // { id, author, text }
+        this.typingTimeoutDuration = 3000; // 3 seconds timeout for typing
 
         this.init();
     }
@@ -34,6 +34,7 @@ class NestChat {
                     localStorage.removeItem('nestToken');
                 }
             } catch (e) {
+                console.error('Error loading persisted auth:', e);
                 localStorage.removeItem('nestToken');
             }
         }
@@ -81,14 +82,13 @@ class NestChat {
 
         // Chat events
         const messageInput = document.getElementById('messageInput');
+        messageInput.addEventListener('input', this.debounce(() => this.sendTypingStatus(true), 500));
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
-
-        messageInput.addEventListener('input', this.debounce(() => this.sendTypingStatus(), 500));
 
         document.getElementById('sendBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
@@ -229,19 +229,25 @@ class NestChat {
     }
 
     async fetchMessages() {
-        const res = await fetch('/api/messages');
-        if (!res.ok) return;
-        const data = await res.json();
-        this.messages = data.map(m => ({
-            ...m,
-            isOwn: m.author === this.currentUser?.username
-        }));
-        this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
+        try {
+            const res = await fetch('/api/messages');
+            if (!res.ok) throw new Error('Failed to fetch messages');
+            const data = await res.json();
+            this.messages = data.map(m => ({
+                ...m,
+                isOwn: m.author === this.currentUser?.username
+            }));
+            this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
+        } catch (e) {
+            console.error('Error fetching messages:', e);
+            this.showToast('Failed to load messages', 'error');
+        }
     }
 
     connectSSE() {
         if (this.es) {
             this.es.close();
+            this.es = null;
         }
 
         const url = new URL('/api/sse', location.origin);
@@ -251,30 +257,44 @@ class NestChat {
         this.es = new EventSource(url);
 
         this.es.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            if (data.type === 'message') {
-                if (data.id <= this.lastMessageId) return;
-                this.lastMessageId = data.id;
-                data.isOwn = false;
-                this.messages.push(data);
-                this.renderMessage(data);
-                this.scrollToBottom();
-            } else if (data.type === 'typing') {
-                this.handleTypingEvent(data);
+            try {
+                const data = JSON.parse(e.data);
+                if (data.type === 'message') {
+                    if (data.id <= this.lastMessageId) return;
+                    this.lastMessageId = data.id;
+                    data.isOwn = data.author === this.currentUser?.username;
+                    this.messages.push(data);
+                    this.renderMessage(data);
+                    this.scrollToBottom();
+                } else if (data.type === 'typing') {
+                    this.handleTypingEvent(data);
+                }
+            } catch (err) {
+                console.error('SSE message parsing error:', err);
             }
         };
 
         this.es.onerror = (err) => {
             console.error('SSE connection error:', err);
+            this.showToast('Lost connection to server. Reconnecting...', 'warning');
             // EventSource auto-reconnects
+        };
+
+        this.es.onopen = () => {
+            console.log('SSE connection established');
         };
     }
 
     async fetchOnlineUsers() {
-        const res = await fetch('/api/users');
-        if (!res.ok) return;
-        this.onlineUsers = await res.json();
-        this.updateOnlineUsers();
+        try {
+            const res = await fetch('/api/users');
+            if (!res.ok) throw new Error('Failed to fetch users');
+            this.onlineUsers = await res.json();
+            this.updateOnlineUsers();
+        } catch (e) {
+            console.error('Error fetching online users:', e);
+            this.showToast('Failed to load online users', 'error');
+        }
     }
 
     async sendMessage() {
@@ -299,7 +319,7 @@ class NestChat {
             });
             const msg = await res.json();
 
-            if (!res.ok) throw new Error();
+            if (!res.ok) throw new Error(msg.error || 'Failed to send message');
 
             msg.isOwn = true;
             this.messages.push(msg);
@@ -309,49 +329,49 @@ class NestChat {
 
             input.value = '';
             this.cancelReply();
-            this.sendTypingStatus(false);
+            await this.sendTypingStatus(false); // Clear typing status after sending
         } catch (e) {
+            console.error('Error sending message:', e);
             this.showToast('Failed to send message', 'error');
         }
     }
 
     async sendTypingStatus(isTyping = true) {
-        if (!this.currentUser || !this.token) return;
-
-        if (this.typingTimeout) {
-            clearTimeout(this.typingTimeout);
+        if (!this.currentUser || !this.token) {
+            console.log('Cannot send typing status: No user or token');
+            return;
         }
 
-        if (isTyping) {
-            try {
-                await fetch('/api/typing', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...this.getAuthHeaders()
-                    },
-                    body: JSON.stringify({ isTyping: true })
-                });
+        try {
+            const res = await fetch('/api/typing', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders()
+                },
+                body: JSON.stringify({ isTyping })
+            });
 
-                this.typingTimeout = setTimeout(() => {
+            if (!res.ok) throw new Error('Failed to send typing status');
+            console.log(`Typing status sent: ${isTyping}`);
+
+            if (isTyping) {
+                // Reset typing timeout
+                if (this.typingUsers.has(this.currentUser.username)) {
+                    clearTimeout(this.typingUsers.get(this.currentUser.username));
+                }
+                const timeout = setTimeout(() => {
                     this.sendTypingStatus(false);
-                }, 3000);
-            } catch (e) {
-                console.error('Failed to send typing status:', e);
+                }, this.typingTimeoutDuration);
+                this.typingUsers.set(this.currentUser.username, timeout);
+            } else {
+                if (this.typingUsers.has(this.currentUser.username)) {
+                    clearTimeout(this.typingUsers.get(this.currentUser.username));
+                    this.typingUsers.delete(this.currentUser.username);
+                }
             }
-        } else {
-            try {
-                await fetch('/api/typing', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...this.getAuthHeaders()
-                    },
-                    body: JSON.stringify({ isTyping: false })
-                });
-            } catch (e) {
-                console.error('Failed to stop typing status:', e);
-            }
+        } catch (e) {
+            console.error('Error sending typing status:', e);
         }
     }
 
@@ -359,9 +379,19 @@ class NestChat {
         if (username === this.currentUser?.username) return;
 
         if (isTyping) {
-            this.typingUsers.add(username);
+            if (this.typingUsers.has(username)) {
+                clearTimeout(this.typingUsers.get(username));
+            }
+            const timeout = setTimeout(() => {
+                this.typingUsers.delete(username);
+                this.renderTypingIndicators();
+            }, this.typingTimeoutDuration);
+            this.typingUsers.set(username, timeout);
         } else {
-            this.typingUsers.delete(username);
+            if (this.typingUsers.has(username)) {
+                clearTimeout(this.typingUsers.get(username));
+                this.typingUsers.delete(username);
+            }
         }
 
         this.renderTypingIndicators();
@@ -371,17 +401,21 @@ class NestChat {
         const container = document.getElementById('typingIndicators');
         container.innerHTML = '';
 
-        if (this.typingUsers.size === 0) return;
+        // Filter out current user
+        const typingUsers = Array.from(this.typingUsers.keys()).filter(
+            username => username !== this.currentUser?.username
+        );
 
-        const usernames = Array.from(this.typingUsers);
-        const text = usernames.length > 2
-            ? `${usernames.slice(0, 2).join(', ')} and ${usernames.length - 2} others are typing...`
-            : usernames.join(' and ') + (usernames.length > 1 ? ' are typing...' : ' is typing...');
+        if (typingUsers.length === 0) return;
+
+        const text = typingUsers.length > 2
+            ? `${typingUsers.slice(0, 2).join(', ')} and ${typingUsers.length - 2} others are typing...`
+            : typingUsers.join(' and ') + (typingUsers.length > 1 ? ' are typing...' : ' is typing...');
 
         const indicator = document.createElement('div');
         indicator.className = 'typing-indicator';
         indicator.innerHTML = `
-            <span>${text}</span>
+            <span>${this.escapeHtml(text)}</span>
             <div class="typing-dots">
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
@@ -435,7 +469,7 @@ class NestChat {
                 headers: this.getAuthHeaders()
             });
         } catch (e) {
-            // Silent fail
+            console.error('Heartbeat failed:', e);
         }
     }
 
@@ -613,12 +647,15 @@ class NestChat {
             if (this.userPollingInterval) clearInterval(this.userPollingInterval);
             if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
 
+            // Clear typing users
+            this.typingUsers.forEach((timeout) => clearTimeout(timeout));
+            this.typingUsers.clear();
+
             this.currentUser = null;
             this.token = null;
             this.messages = [];
             this.onlineUsers = [];
             this.lastMessageId = 0;
-            this.typingUsers.clear();
             this.cancelReply();
 
             this.showToast('Successfully logged out', 'success');
