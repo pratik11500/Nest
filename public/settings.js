@@ -7,26 +7,52 @@ class SettingsManager {
 
     async init() {
         if (!this.token) {
+            console.warn('No token found in localStorage, redirecting to login');
+            this.showToast('Please log in to access settings', 'error');
             this.redirectToLogin();
             return;
         }
-        await this.loadUser();
-        this.bindEvents();
-        this.showSection('account');
+        try {
+            await this.loadUser();
+            this.bindEvents();
+            this.showSection('account');
+        } catch (e) {
+            console.error('Initialization failed:', e);
+            this.showToast('Failed to initialize settings: ' + e.message, 'error');
+            this.redirectToLogin();
+        }
     }
 
     async loadUser() {
         try {
+            console.log('Fetching user data from /api/me with token:', this.token);
             const res = await fetch('/api/me', {
-                headers: { Authorization: `Bearer ${this.token}` }
+                method: 'GET',
+                headers: { 
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                }
             });
-            if (!res.ok) throw new Error('Failed to fetch user');
+            console.log('GET /api/me response status:', res.status, 'ok:', res.ok);
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                const errorMessage = errorData.error || `HTTP ${res.status}: Failed to fetch user`;
+                throw new Error(errorMessage);
+            }
+
             this.currentUser = await res.json();
+            console.log('User data loaded:', this.currentUser);
             this.updateProfileForm();
         } catch (e) {
             console.error('Error loading user:', e);
-            this.showToast('Failed to load user data', 'error');
-            this.redirectToLogin();
+            if (e.message.includes('401')) {
+                this.showToast('Session expired. Please log in again.', 'error');
+                localStorage.removeItem('nestToken');
+            } else {
+                this.showToast(`Failed to load user data: ${e.message}`, 'error');
+            }
+            throw e; // Re-throw to trigger redirect in init
         }
     }
 
@@ -38,7 +64,7 @@ class SettingsManager {
         const profileInitials = document.getElementById('profileInitials');
 
         if (this.currentUser) {
-            usernameInput.value = this.currentUser.username;
+            usernameInput.value = this.currentUser.username || '';
             bioInput.value = this.currentUser.bio || '';
             if (this.currentUser.profile_picture) {
                 profilePictureImg.src = this.currentUser.profile_picture;
@@ -141,6 +167,7 @@ class SettingsManager {
             this.showToast('Password updated successfully', 'success');
             document.getElementById('changePasswordForm').reset();
         } catch (e) {
+            console.error('Error updating password:', e);
             this.showToast(e.message || 'Failed to update password', 'error');
         } finally {
             button.classList.remove('loading');
@@ -174,6 +201,7 @@ class SettingsManager {
             document.getElementById('changeEmailForm').reset();
             this.currentUser.email = newEmail;
         } catch (e) {
+            console.error('Error updating email:', e);
             this.showToast(e.message || 'Failed to update email', 'error');
         } finally {
             button.classList.remove('loading');
@@ -208,6 +236,7 @@ class SettingsManager {
             localStorage.removeItem('nestToken');
             setTimeout(() => this.redirectToLogin(), 1000);
         } catch (e) {
+            console.error('Error deleting account:', e);
             this.showToast(e.message || 'Failed to delete account', 'error');
         } finally {
             button.classList.remove('loading');
@@ -245,18 +274,22 @@ class SettingsManager {
         button.classList.add('loading');
 
         try {
+            console.log('Sending PATCH /api/account for profile update');
             const res = await fetch('/api/account', {
                 method: 'PATCH',
                 headers: { Authorization: `Bearer ${this.token}` },
                 body: formData
             });
+            console.log('PATCH /api/account response status:', res.status, 'ok:', res.ok);
             const data = await res.json();
+            console.log('PATCH /api/account response:', data);
             if (!res.ok) throw new Error(data.error || 'Failed to update profile');
             this.currentUser = { ...this.currentUser, username, bio, profile_picture: data.profile_picture };
             this.updateProfileForm();
             this.showToast('Profile updated successfully', 'success');
             document.getElementById('profilePicture').value = '';
         } catch (e) {
+            console.error('Error updating profile:', e);
             this.showToast(e.message || 'Failed to update profile', 'error');
         } finally {
             button.classList.remove('loading');
@@ -264,7 +297,7 @@ class SettingsManager {
     }
 
     getInitials(name) {
-        return name.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2);
+        return name ? name.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : '';
     }
 
     showToast(message, type = 'success', duration = 4000) {
@@ -322,6 +355,7 @@ class SettingsManager {
     }
 
     redirectToLogin() {
+        console.log('Redirecting to login page');
         window.location.href = '/';
     }
 }
