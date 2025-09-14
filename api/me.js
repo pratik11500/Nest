@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
+    console.warn('Invalid method:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
 
   try {
     const query = `
-      SELECT id, username, bio, profile_picture 
+      SELECT id, username, profile_picture 
       FROM users 
       WHERE id = $1
     `;
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       id: user.id,
       username: user.username,
-      bio: user.bio,
+      bio: null, // Set to null since bio column doesn't exist
       profile_picture: profilePicture
     });
   } catch (error) {
