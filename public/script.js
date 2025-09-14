@@ -50,6 +50,7 @@ class NestChat {
     }
 
     getAuthHeaders() {
+        console.log('Auth Token:', this.token); // Log token for debugging
         return { Authorization: `Bearer ${this.token}` };
     }
 
@@ -237,7 +238,8 @@ class NestChat {
             this.messages = data.map(m => ({
                 ...m,
                 isOwn: m.author === this.currentUser?.username,
-                edit_history: m.edit_history || [] // Ensure edit_history is included
+                edit_history: m.edit_history || [],
+                last_edited_at: m.last_edited_at // Include last_edited_at
             }));
             this.lastMessageId = data.length ? Math.max(...data.map(m => m.id)) : 0;
         } catch (e) {
@@ -269,7 +271,8 @@ class NestChat {
                         this.messages[existingMessageIndex] = {
                             ...data,
                             isOwn: data.author === this.currentUser?.username,
-                            edit_history: data.edit_history || []
+                            edit_history: data.edit_history || [],
+                            last_edited_at: data.last_edited_at
                         };
                         this.renderMessages(); // Re-render to update edited message
                     } else {
@@ -278,6 +281,7 @@ class NestChat {
                         this.lastMessageId = data.id;
                         data.isOwn = data.author === this.currentUser?.username;
                         data.edit_history = data.edit_history || [];
+                        data.last_edited_at = data.last_edited_at;
                         this.messages.push(data);
                         this.renderMessage(data);
                         this.scrollToBottom();
@@ -338,6 +342,7 @@ class NestChat {
 
             msg.isOwn = true;
             msg.edit_history = msg.edit_history || [];
+            msg.last_edited_at = msg.last_edited_at;
             this.messages.push(msg);
             this.lastMessageId = msg.id;
             this.renderMessage(msg);
@@ -481,12 +486,18 @@ class NestChat {
         }
 
         const message = this.messages.find(m => m.id === messageId);
-        if (!message || !message.isOwn) return;
+        if (!message || !message.isOwn) {
+            console.error('Cannot edit message: Invalid message or not owned', { messageId, isOwn: message?.isOwn });
+            return;
+        }
 
         this.editingMessageId = messageId;
 
         const messageEl = document.querySelector(`.message[data-message-id="${messageId}"] .message-content`);
-        if (!messageEl) return;
+        if (!messageEl) {
+            console.error('Message content element not found for ID:', messageId);
+            return;
+        }
 
         const messageText = messageEl.querySelector('.message-text').textContent;
 
@@ -518,7 +529,11 @@ class NestChat {
 
     async saveEdit(messageId) {
         const messageEl = document.querySelector(`.message[data-message-id="${messageId}"] .edit-message-container`);
-        if (!messageEl) return;
+        if (!messageEl) {
+            console.error('Edit container not found for message ID:', messageId);
+            this.showToast('Failed to edit message: UI error', 'error');
+            return;
+        }
 
         const newText = messageEl.querySelector('.edit-message-input').value.trim();
         if (!newText) {
@@ -527,6 +542,7 @@ class NestChat {
         }
 
         try {
+            console.log('Sending PATCH request for message ID:', messageId, 'New text:', newText);
             const res = await fetch(`/api/messages/${messageId}`, {
                 method: 'PATCH',
                 headers: {
@@ -536,23 +552,36 @@ class NestChat {
                 body: JSON.stringify({ text: newText })
             });
 
+            console.log('PATCH response status:', res.status, 'ok:', res.ok);
             const updatedMessage = await res.json();
-            if (!res.ok) throw new Error(updatedMessage.error || 'Failed to edit message');
+            console.log('PATCH response body:', updatedMessage);
+
+            if (!res.ok) {
+                throw new Error(updatedMessage.error || `Failed to edit message (Status: ${res.status})`);
+            }
+
+            if (!updatedMessage.id || !updatedMessage.text) {
+                throw new Error('Invalid response format from server');
+            }
 
             const messageIndex = this.messages.findIndex(m => m.id === messageId);
             if (messageIndex !== -1) {
                 this.messages[messageIndex] = {
                     ...this.messages[messageIndex],
                     text: updatedMessage.text,
-                    edit_history: updatedMessage.edit_history || []
+                    edit_history: updatedMessage.edit_history || [],
+                    last_edited_at: updatedMessage.last_edited_at
                 };
                 this.renderMessages();
                 this.editingMessageId = null;
                 this.showToast('Message updated', 'success');
+            } else {
+                console.error('Message not found in local state:', messageId);
+                this.showToast('Failed to update message locally', 'error');
             }
         } catch (e) {
-            console.error('Error editing message:', e);
-            this.showToast('Failed to edit message', 'error');
+            console.error('Error editing message:', e.message);
+            this.showToast(`Failed to edit message: ${e.message}`, 'error');
         }
     }
 
@@ -579,14 +608,14 @@ class NestChat {
         let historyItems = message.edit_history.map((entry, index) => `
             <div class="edit-history-item">
                 <span>${new Date(entry.edited_at).toLocaleString()}</span>
-                <p>${this.escapeHtml(entry.text)}</p>
+                <p>${this.escapeHtml(entry.old_text)}</p>
             </div>
         `).join('');
 
-        // Include original message
+        // Include current message (not original, as original is in edit_history)
         historyItems = `
-            <div class="edit-history-item original">
-                <span>Original - ${new Date(message.created_at).toLocaleString()}</span>
+            <div class="edit-history-item current">
+                <span>Current - ${message.last_edited_at ? new Date(message.last_edited_at).toLocaleString() : new Date(message.created_at).toLocaleString()}</span>
                 <p>${this.escapeHtml(message.text)}</p>
             </div>
             ${historyItems}
@@ -614,7 +643,6 @@ class NestChat {
             modal.remove();
         });
 
-        // Close modal on click outside
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
@@ -679,7 +707,7 @@ class NestChat {
         messageEl.dataset.messageId = message.id;
         if (animate) messageEl.style.opacity = '0';
 
-        const timestamp = new Date(message.created_at).toLocaleTimeString([], {
+        const timestamp = new Date(message.last_edited_at || message.created_at).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -730,14 +758,14 @@ class NestChat {
 
         // Bind reply button
         messageEl.querySelector('.reply-btn').addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent triggering edit history
+            e.stopPropagation();
             this.handleReply(message.id);
         });
 
         // Bind edit button
         if (message.isOwn) {
             messageEl.querySelector('.edit-btn').addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent triggering edit history
+                e.stopPropagation();
                 this.editMessage(message.id);
             });
         }
@@ -751,7 +779,7 @@ class NestChat {
         const quotedMessage = messageEl.querySelector('.quoted-message');
         if (quotedMessage) {
             quotedMessage.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent triggering edit history
+                e.stopPropagation();
                 this.scrollToMessage(quotedMessage.dataset.messageId);
             });
         }
