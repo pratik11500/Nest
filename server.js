@@ -29,10 +29,10 @@ const authenticate = (req, res, next) => {
 
 app.patch('/api/messages/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
-  const username = req.user.username; // Adjust based on JWT payload
-  if (!content) {
-    return res.status(400).json({ error: 'Content is required' });
+  const { text } = req.body;
+  const userId = req.user.id;
+  if (!text) {
+    return res.status(400).json({ error: 'Text is required' });
   }
   try {
     const client = await pool.connect();
@@ -45,26 +45,27 @@ app.patch('/api/messages/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Message not found' });
     }
     const message = messageResult.rows[0];
-    if (message.username !== username) {
+    if (message.author_id !== userId) {
       client.release();
       return res.status(403).json({ error: 'Unauthorized to edit this message' });
     }
     await client.query(
       'INSERT INTO edit_history (message_id, old_text, edited_at) VALUES ($1, $2, NOW())',
-      [id, message.content]
+      [id, message.text]
     );
     await client.query(
-      'UPDATE messages SET content = $1, timestamp = NOW() WHERE id = $2',
-      [content, id]
+      'UPDATE messages SET text = $1, last_edited_at = NOW() WHERE id = $2',
+      [text, id]
     );
     const updatedResult = await client.query(
-      `SELECT m.*, m.username AS author,
+      `SELECT m.*, u.username AS author,
               COALESCE(
                 (SELECT json_agg(json_build_object('old_text', eh.old_text, 'edited_at', eh.edited_at))
                  FROM edit_history eh WHERE eh.message_id = m.id),
                 '[]'
               ) AS edit_history
        FROM messages m
+       JOIN users u ON m.author_id = u.id
        WHERE m.id = $1`,
       [id]
     );
@@ -83,14 +84,15 @@ app.get('/api/messages', async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query(
-      `SELECT m.*, m.username AS author,
+      `SELECT m.*, u.username AS author,
               COALESCE(
                 (SELECT json_agg(json_build_object('old_text', eh.old_text, 'edited_at', eh.edited_at))
                  FROM edit_history eh WHERE eh.message_id = m.id),
                 '[]'
               ) AS edit_history
        FROM messages m
-       ORDER BY m.timestamp`
+       JOIN users u ON m.author_id = u.id
+       ORDER BY m.created_at`
     );
     client.release();
     res.json(result.rows);
