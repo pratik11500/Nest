@@ -20,7 +20,7 @@ export default async (req, res) => {
     }
 
     if (req.method === 'GET') {
-      console.log('DATABASE_URL:', process.env.DATABASE_URL); // Debug
+      console.log('DATABASE_URL:', process.env.DATABASE_URL);
       const messages = await sql`
         SELECT m.*, u.username AS author,
                COALESCE(
@@ -34,7 +34,7 @@ export default async (req, res) => {
       `;
       res.status(200).json(messages);
     } else if (req.method === 'POST') {
-      console.log('DATABASE_URL:', process.env.DATABASE_URL); // Debug
+      console.log('DATABASE_URL:', process.env.DATABASE_URL);
       const { text, parent_message_id } = req.body;
       if (!text) {
         return res.status(400).json({ error: 'Text is required' });
