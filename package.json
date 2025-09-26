@@ -6,11 +6,17 @@
     "@neondatabase/serverless": "^0.10.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "node-pg-migrate": "^7.7.0"
   },
   "scripts": {
     "dev": "vercel dev",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "migrate": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down"
   },
   "engines": {
     "node": ">=18.0.0"
